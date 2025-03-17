@@ -10,6 +10,8 @@ class Card:
     def getCardVal(cardstr):
         cate = Cate_str.find(cardstr[0])
         num = Num_str.find(cardstr[1])
+        if num > 12:
+            return num + 39
         return cate + num * 4
 
     def __init__(self, v):
@@ -27,6 +29,9 @@ class Card:
 
     def val_str(self):
         return Val_str[self.cate * 13 + self.num]
+
+    def get_num_str(num):
+        return Num_str[num]
 
     def num_str(self):
         return Num_str[self.num]
