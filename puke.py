@@ -1,5 +1,5 @@
-#hy_qiu 扑克牌基础类
-#花色和牌点
+# hy_qiu 扑克牌基础类
+# 花色和牌点
 #
 Cate_str = "♦♣♥♠🃟🃏"
 Num_str = "234567890JQKAgG"
@@ -28,8 +28,12 @@ class Card:
         self.val = v
 
     def val_str(self):
-        return Val_str[self.cate * 13 + self.num]
-
+        if self.num > 12:
+            return Val_str[39 + self.num]
+        else:
+            return Val_str[self.cate * 13 + self.num]
+        
+    @staticmethod
     def get_num_str(num):
         return Num_str[num]
 

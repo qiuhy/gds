@@ -28,6 +28,9 @@ class OutCate(Enum):
     def isSuper(self):
         return self in [OutCate.THS, OutCate.ZhaDan, OutCate.WangZha]
 
+    def isValid(self):
+        return self not in [OutCate.Pass, OutCate.Error]
+
 
 class OutCard:
     def __init__(self, cards: list, level):
@@ -62,6 +65,9 @@ class OutCard:
 
         self.val = -1
         self.cate = self.get_cate()
+        if self.cate in (OutCate.Pass, OutCate.Error):
+            return
+
         if self.val == -1:
             self.val = self.cards[0].num
 
@@ -329,12 +335,17 @@ class OutCard:
             return OutCate.Error
 
     def val_str(self):
-        if self.val < 13:
-            return Card.get_num_str(self.val)
+        return [str(c) for c in self.cards]
+
+    def __str__(self):
+        if self.val == -1:
+            return  self.cate.value
+        elif self.val < 13:
+            return Card.get_num_str(self.val) + self.cate.value
         elif self.val < 26:
-            return "@" + Card.get_num_str(self.val - 13)
+            return "@" + Card.get_num_str(self.val - 13) + self.cate.value
         else:
-            return "W" + Card.get_num_str(self.val - 13)
+            return "W" + Card.get_num_str(self.val - 13) + self.cate.value
 
     def __eq__(self, p):
         if not isinstance(p, OutCard):
@@ -395,6 +406,4 @@ if __name__ == "__main__":
     # s.append(Cate_str[random.randint(0, 3)] + Card.get_num_str(random.randint(10, 12)))
     cardVals = [Card.getCardVal(c) for c in s]
     o = OutCard(cardVals, 8)
-    print(o.val_str(), o.cate.value)
-    for c in o.cards:
-        print(c, end=" ")
+    print(o, o.val_str())
