@@ -33,11 +33,12 @@ class OutCate(Enum):
 
 
 class OutCard:
-    def __init__(self, cards: list, level):
+    def __init__(self, cards: list, level,player=None):
         self.cards: list[Card] = []
         self.red_cards: list[Card] = []
         self.wang_cards: list[Card] = []
         self.other_cards: list[Card] = []
+        self.player = player
         self.num_count = {}
 
         self.cards = [Puke[c] for c in sorted(cards, reverse=True)]

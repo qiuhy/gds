@@ -1,14 +1,14 @@
-import game
+import player
 from puke import Puke
 import out
 
 
-class human(game.Player):
+class human(player.Player):
     def play(self, desk_outs, level):
         cards = []
         strCard=""
         for c in self.cards:
-            strCard += " " +str(Puke[c])
+            strCard += " " +Puke[c]
         strs = input(f"{self.name}(你):{strCard}\n出牌:").split()
 
     def back(self, card):

@@ -7,6 +7,11 @@ Val_str = "🂢🂣🂤🂥🂦🂧🂨🂩🂪🂫🂬🂭🂡🂲🂳🂴🂵�
 
 
 class Card:
+    @staticmethod
+    def get_num_str(num):
+        return Num_str[num]
+
+    @staticmethod
     def getCardVal(cardstr):
         cate = Cate_str.find(cardstr[0])
         num = Num_str.find(cardstr[1])
@@ -32,10 +37,6 @@ class Card:
             return Val_str[39 + self.num]
         else:
             return Val_str[self.cate * 13 + self.num]
-        
-    @staticmethod
-    def get_num_str(num):
-        return Num_str[num]
 
     def num_str(self):
         return Num_str[self.num]
