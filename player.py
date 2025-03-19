@@ -1,31 +1,29 @@
 from abc import abstractmethod
 from out import OutCard, OutCate
 from puke import Puke, Card
+from level import Level
 
 
-class Player:
+class Player(Level):
+
     def __init__(self):
         self.name = ""
         self.partner = None
         self.sit = None
-        self._cards = []
-        self.numCards = [[] for i in range(15)]
+        self.numCards = [[] for i in range(15)]  # "234567890JQKAgG"
         self.curLevel = 0
 
     @property
-    def cards(self):
-        return self._cards
+    def cardCount(self):
+        return sum(len(cards) for cards in self.numCards)
 
-    @cards.setter
-    def cards(self, cards):
+    def set_cards(self, cards):
         for n in self.numCards:
             n.clear()
 
-        for i in cards:
-            num = Puke[i].num
-            self.numCards[num].append(i)
-
-        self._cards = cards
+        for c in cards:
+            num = Puke[c].num
+            self.numCards[num].append(c)
 
     def action(self, desk_outs: list[OutCard]):
         select_cards = self.play(desk_outs)
@@ -43,65 +41,83 @@ class Player:
     @abstractmethod
     def give(self):
         # 贡牌
-        for c in self.cards:
-            if not (Puke[c].num == self.curLevel and Puke[c].cate_str() == "♥"):
-                break
-        num = Puke[c].num
-        self.numCards[num].remove(c)
-        self.cards.remove(c)
-        return c
+        redcard = Card.getCardVal("♥" + Card.get_num_str(self.curLevel))
+        for num in reversed(self.numOrder):
+            for c in self.numCards[num]:
+                if c != redcard:
+                    self.numCards[num].remove(c)
+                    return c
+        return None
 
     @abstractmethod
-    def back(self, card):
+    def back(self, c):
         # 得到贡牌，再还牌
-        self.cards.insert(0, card)
-        num = Puke[card].num
-        self.numCards[num].append(card)
+        num = Puke[c].num
+        self.numCards[num].append(c)
 
-        card = self.cards.pop()
-        num = Puke[card].num
-        self.numCards[num].remove(card)
+        for num in self.numOrder:
+            if len(self.numCards[num]):
+                return self.numCards[num].pop()
+        return None
 
-        return card
-
-    def get_back(self, card):
+    def get_back(self, c):
         # 拿到还牌
-        self.cards.append(card)
-        num = Puke[card].num
-        self.numCards[num].append(card)
+        num = Puke[c].num
+        self.numCards[num].append(c)
 
-    def removeCards(self,cards):
+    def removeCards(self, cards):
         for c in cards:
             num = Puke[c].num
             self.numCards[num].remove(c)
-            self.cards.remove(c)
 
     @abstractmethod
     def play(self, desk_outs: list[OutCard]) -> list:
         # 出牌
+        curOut = []
         if len(desk_outs) == 0:
-            # 先出
-            return [self.cards[-1]]
+            return self.get_out(None)
         else:
-            out = desk_outs[-1]
-            if out.player == self.partner:
+            prvOut = desk_outs[-1]
+            if prvOut.player == self.partner:
                 # 对家的不要
-                return []
+                pass
             else:
-                # 尽量管住
-                for num in self.get_cards(out.cate):
-                    s = Card.get_num_str(num)
-                    i = Card.getCardVal(s)
+                return self.get_out(prvOut)
 
-                for i in reversed(self.cards):
-                    select_cards = [i]
-                    hand = OutCard(select_cards, self.curLevel, self.sit)
-                    if hand > out:
-                        return select_cards
-            return []
+        return curOut
 
     def get_out(self, prv: OutCard):
         c = []
-        if prv.cate == OutCate.Single:
-            pass
+        if prv is None:
+            # 先出最小的
+            for n in self.numOrder:
+                if len(self.numCards[n]) < 4 and len(self.numCards[n]) > 0:
+                    c += self.numCards[n]
+                    return c
+
+            for n in self.numOrder:
+                if len(self.numCards[n]):
+                    c += self.numCards[n]
+                    return c
+            
+        else:
+            prvOrder = self.numOrder.index(prv.val)
+            # 尽量管住 单牌，炸
+            for n in self.numOrder[prvOrder + 1 :]:
+                if len(self.numCards[n]) == prv.cardCount:
+                    c += self.numCards[n]
+                    return c
+
+            for n in self.numOrder:
+                if len(self.numCards[n]) >= 4:
+                    c += self.numCards[n]
+                    return c
+
         return c
+
+    def __str__(self):
+        s = f"{self.name}:"
+        for n in reversed(self.numOrder):
+            for c in self.numCards[n]:
+                s += " " + str(Puke[c])
+        return s

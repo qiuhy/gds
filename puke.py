@@ -12,6 +12,17 @@ class Card:
         return Num_str[num]
 
     @staticmethod
+    def get_cate_str(idx):
+        idx = idx % 54
+        if idx < 52:            
+            return Cate_str[idx % 4]
+        elif idx == 52:            
+            return Cate_str[4]
+        else:
+            return Cate_str[5]
+        
+
+    @staticmethod
     def getCardVal(cardstr):
         cate = Cate_str.find(cardstr[0])
         num = Num_str.find(cardstr[1])

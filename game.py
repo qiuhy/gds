@@ -5,14 +5,17 @@ import player
 
 
 class Team:
+
+    _level = 0  # 当前打几 index of 234567890JQKA
+
     def __init__(self, p1, p2):
         p1.partner = p2.sit
         p2.partner = p1.sit
         self.players = [p1, p2]
         self.name = p1.name + p2.name
-        self._level = 0  # 当前打几 index of 234567890JQKA
         self.levelCount = 0
         self.on_desk = False  # 在台上
+        self.level = 0
 
     @property
     def level(self):
@@ -99,9 +102,10 @@ class Table:
     def get_level_name(self, level=None):
         if level == None:
             level = self.curLevel
-        levelname = Card.get_num_str(level)
+        levelname = ""
         if level == 12:
-            levelname = self.curTeam.levelCount + levelname
+            levelname = str(self.curTeam.levelCount)
+        levelname += Card.get_num_str(level)
         return levelname
 
     def deal(self):
@@ -111,7 +115,7 @@ class Table:
         random.shuffle(cards)
         i = 0
         for p in self.players:
-            p.cards = cards[i : i + 27]
+            p.set_cards(cards[i : i + 27])
             i += 27
 
     def back(self, giver, givecard, backer):
@@ -132,9 +136,9 @@ class Table:
 
         double_give = self.winner[-2] == get_teammate(self.winner[-1])
 
-        G_count = self.players[self.winner[-1]].cards.count(53)
+        G_count = len(self.players[self.winner[-1]].numCards[14])
         if double_give:
-            G_count += self.players[self.winner[-2]].cards.count(53)
+            G_count += len(self.players[self.winner[-2]].numCards[14])
 
         if G_count == 2:
             if double_give:
@@ -194,7 +198,7 @@ class Table:
             if showOut:
                 print(
                     self.players[firstPlayer].name,
-                    f"({len(self.players[firstPlayer].cards)})",
+                    f"({self.players[firstPlayer].cardCount})",
                     strFirts,
                 )
             passed = 0
@@ -202,40 +206,40 @@ class Table:
             while passed < len(self.players) - 1:
                 if nextPlayer in self.winner:
                     passed += 1
-                    continue
-                curPlayer = self.players[nextPlayer]
-                outcate = curPlayer.action(self.ondesk_cards)
-                outCount += 1
-
-                if showOut:
-                    if outcate.isValid():
-                        out = self.ondesk_cards[-1]
-                        print(
-                            curPlayer.name,
-                            ":",
-                            out,
-                            out.val_str(),
-                            end=" ",
-                        )
-                        if len(curPlayer.cards) == 0:
-                            print("\t", winner_title[len(self.winner)])
-                        else:
-                            print(f"\t({len(curPlayer.cards)})")
-                    else:
-                        print(
-                            curPlayer.name,
-                            ":",
-                            outcate.value,
-                            f"\t({len(curPlayer.cards)})",
-                        )
-
-                if outcate.isValid():
-                    if len(curPlayer.cards) == 0:
-                        self.winner.append(nextPlayer)
-                    firstPlayer = nextPlayer
-                    passed = 0
                 else:
-                    passed += 1
+                    curPlayer = self.players[nextPlayer]
+                    outcate = curPlayer.action(self.ondesk_cards)
+                    outCount += 1
+
+                    if showOut:
+                        if outcate.isValid():
+                            out = self.ondesk_cards[-1]
+                            print(
+                                curPlayer.name,
+                                ":",
+                                out,
+                                out.val_str(),
+                                end=" ",
+                            )
+                            if curPlayer.cardCount == 0:
+                                print("\t", winner_title[len(self.winner)])
+                            else:
+                                print(f"\t({curPlayer.cardCount})")
+                        else:
+                            print(
+                                curPlayer.name,
+                                ":",
+                                outcate.value,
+                                f"\t({curPlayer.cardCount})",
+                            )
+
+                    if outcate.isValid():
+                        if curPlayer.cardCount == 0:
+                            self.winner.append(nextPlayer)
+                        firstPlayer = nextPlayer
+                        passed = 0
+                    else:
+                        passed += 1
 
                 nextPlayer = self.get_nextPlayer(nextPlayer)
 
@@ -271,8 +275,6 @@ class Table:
         self._curTeam = self.winner[0] % 2
         self.firstPlayer = self.winner[-1]
         win_team = self.curTeam
-        win_team.level = min(12, win_team.level + winscore)
-
         if win_team.level == 12:
             if winscore >= 2:
                 is_over = True
@@ -283,6 +285,7 @@ class Table:
                         win_team.name, self.get_level_name(win_team.level)
                     )
                 )
+        win_team.level = min(12, win_team.level + winscore)
 
         print(
             "第{}局结束: {}  {} 赢, 得{}分 ".format(
@@ -297,6 +300,11 @@ class Table:
 
         if not is_over:
             self.gameCount += 1
+
+        return is_over
+
+    def run(self):
+        while not self.is_game_over():
             print(
                 "第{}局开始: {} 打 {}\t现在比分 {}:{} - {}:{}".format(
                     self.gameCount + 1,
@@ -308,26 +316,19 @@ class Table:
                     self.get_level_name(self.teams[1].level),
                 )
             )
-        return is_over
 
-    def run(self):
-        while not self.is_game_over():
             self.deal()
             self.give()
+            print(self)
             input("Enter to continue ....")
             self.play(True)
 
     def __str__(self):
         if len(t.teams) == 0:
             return "未组队,或玩家人数不足"
-        s = f"{t.teams[0].name} VS {t.teams[1].name}\n"
-        s += f"第{self.gameCount+1}局 打{self.get_level_name()} {self.players[self.firstPlayer].name }先出"
+        s = f"第{self.gameCount+1}局 打{self.get_level_name()} {self.players[self.firstPlayer].name }先出"
         for p in self.players:
-            if len(p.cards) == 0:
-                continue
-            s += "\n" + p.name + ":"
-            for c in p.cards:
-                s += Puke[c]
+            s += "\n" + str(p)
         return s
 
 
@@ -337,6 +338,5 @@ if __name__ == "__main__":
         t.join_player(player.Player())
 
     if t.start():
-        print(t)
         t.run()
         print(f"Game Over {t.curTeam.name} 赢了")

@@ -1,5 +1,6 @@
 from enum import Enum
 from puke import Puke, Card
+from level import Level
 
 
 class OutCate(Enum):
@@ -16,15 +17,6 @@ class OutCate(Enum):
     WangZha = "王炸"
     Error = "无效"
 
-    def isLevelBig(self):
-        return self in [
-            OutCate.Single,
-            OutCate.Double,
-            OutCate.Three,
-            OutCate.FeiJi,
-            OutCate.ZhaDan,
-        ]
-
     def isSuper(self):
         return self in [OutCate.THS, OutCate.ZhaDan, OutCate.WangZha]
 
@@ -32,8 +24,8 @@ class OutCate(Enum):
         return self not in [OutCate.Pass, OutCate.Error]
 
 
-class OutCard:
-    def __init__(self, cards: list, level,player=None):
+class OutCard(Level):
+    def __init__(self, cards: list, level, player=None):
         self.cards: list[Card] = []
         self.red_cards: list[Card] = []
         self.wang_cards: list[Card] = []
@@ -43,7 +35,7 @@ class OutCard:
 
         self.cards = [Puke[c] for c in sorted(cards, reverse=True)]
 
-        self.level = level
+        self.curLevel = level
         self.cardCount = len(self.cards)
         for c in self.cards:
             isred = False
@@ -71,13 +63,6 @@ class OutCard:
 
         if self.val == -1:
             self.val = self.cards[0].num
-
-        if self.val > 12:  # 王
-            self.val += 13
-
-        if self.cate.isLevelBig():  # 参谋
-            if self.val == self.level:
-                self.val += 13
 
     def get_cate(self) -> OutCate:
         count = self.cardCount
@@ -205,7 +190,7 @@ class OutCard:
                     )
                 else:
                     # 22
-                    if keys[1] == self.level:
+                    if keys[1] == self.curLevel:
                         self.cards = (
                             self.other_cards[-2:]
                             + self.red_cards
@@ -216,7 +201,7 @@ class OutCard:
                             self.other_cards[:2] + self.red_cards + self.other_cards[2:]
                         )
             elif self.redCount == 2:
-                if keys[1] == self.level:
+                if keys[1] == self.curLevel:
                     self.cards = (
                         self.other_cards[vals[0] :]
                         + self.red_cards[: 3 - vals[1]]
@@ -340,13 +325,12 @@ class OutCard:
 
     def __str__(self):
         if self.val == -1:
-            return  self.cate.value
-        elif self.val < 13:
-            return Card.get_num_str(self.val) + self.cate.value
-        elif self.val < 26:
-            return "@" + Card.get_num_str(self.val - 13) + self.cate.value
+            return self.cate.value
         else:
-            return "W" + Card.get_num_str(self.val - 13) + self.cate.value
+            s = ""
+            if self.val == self.curLevel:
+                s = "@"
+            return s + Card.get_num_str(self.val) + self.cate.value
 
     def __eq__(self, p):
         if not isinstance(p, OutCard):
@@ -357,13 +341,16 @@ class OutCard:
         if not isinstance(p, OutCard):
             raise TypeError()
 
+        if not self.cate.isValid() or not p.cate.isValid():
+            return False
+
         if self.cate == OutCate.WangZha:
             return False
         elif self.cate == OutCate.THS:
             if p.cate == OutCate.WangZha:
                 return True
             elif p.cate == OutCate.THS:
-                return self.val < p.val
+                return self.numOrder.index(self.val) < p.numOrder.index(p.val)
             elif p.cate == OutCate.ZhaDan:
                 return p.cardCount > 5
             return False
@@ -374,11 +361,11 @@ class OutCard:
                 return self.cardCount <= 5
             elif p.cate == OutCate.ZhaDan:
                 if self.cardCount == p.cardCount:
-                    return self.val < p.val
+                    return self.numOrder.index(self.val) < p.numOrder.index(p.val)
                 return self.cardCount < p.cardCount
             return False
         elif self.cate == p.cate:
-            return self.val < p.val
+            return self.numOrder.index(self.val) < p.numOrder.index(p.val)
 
         return p.cate in [OutCate.THS, OutCate.ZhaDan, OutCate.WangZha]
 
