@@ -2,15 +2,16 @@ from abc import abstractmethod
 from out import OutCard, OutCate
 from puke import Puke, Card
 from level import Level
-
+from event import *
 
 class Player(Level):
 
-    def __init__(self):
-        self.name = ""
+    def __init__(self, name=""):
+        super().__init__()
         self.partner = None
         self.sit = None
         self.numCards = [[] for i in range(15)]  # "234567890JQKAgG"
+        self.name = name
         self.curLevel = 0
 
     @property
@@ -92,28 +93,41 @@ class Player(Level):
             # 先出最小的
             for n in self.numOrder:
                 if len(self.numCards[n]) < 4 and len(self.numCards[n]) > 0:
-                    c += self.numCards[n]
-                    return c
+                    return self.numCards[n].copy()
 
             for n in self.numOrder:
                 if len(self.numCards[n]):
-                    c += self.numCards[n]
-                    return c
-            
+                    return self.numCards[n].copy()
+
         else:
             prvOrder = self.numOrder.index(prv.val)
-            # 尽量管住 单牌，炸
+            # 尽量管住   同类牌，炸
             for n in self.numOrder[prvOrder + 1 :]:
                 if len(self.numCards[n]) == prv.cardCount:
-                    c += self.numCards[n]
-                    return c
+                    return self.numCards[n].copy()
 
             for n in self.numOrder:
                 if len(self.numCards[n]) >= 4:
-                    c += self.numCards[n]
-                    return c
+                    return self.numCards[n].copy()
 
         return c
+
+    def onEvent(self,e:Game_Event_Cate,info):
+        if e == Game_Event_Cate.GE_Ready:
+            #记录玩家信息
+            pass
+        elif e == Game_Event_Cate.GE_Deal:
+            self.set_cards(info)
+            #更新界面
+        elif e == Game_Event_Cate.GE_Back:
+            #{}贡{}给{}，得到还{}
+            pass
+        elif e == Game_Event_Cate.GE_Play:
+            #info : OutCard
+            pass
+        elif e == Game_Event_Cate.GE_Over:
+            #info : winner
+            pass
 
     def __str__(self):
         s = f"{self.name}:"

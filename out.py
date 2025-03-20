@@ -12,26 +12,34 @@ class OutCate(Enum):
     ShunZi = "顺子"
     ZiMeiDui = "姊妹对"
     GangBan = "钢板"
-    THS = "同花顺"
-    ZhaDan = "炸弹"
-    WangZha = "王炸"
+    ZhaDan4 = "炸弹"
+    ZhaDan5 = "五炸"
+    ZhaDan5THS = "同花顺"
+    ZhaDan6 = "六炸"
+    ZhaDan7 = "七炸"
+    ZhaDan8 = "八炸"
+    ZhaDan9 = "九炸"
+    ZhaDanS = "十炸"
+    ZhaWang = "王炸"
     Error = "无效"
 
-    def isSuper(self):
-        return self in [OutCate.THS, OutCate.ZhaDan, OutCate.WangZha]
+    def isZhaDan(self):
+        return self.name.startswith("Zha")
 
     def isValid(self):
         return self not in [OutCate.Pass, OutCate.Error]
 
 
 class OutCard(Level):
+    
     def __init__(self, cards: list, level, player=None):
+        super().__init__()
         self.cards: list[Card] = []
         self.red_cards: list[Card] = []
         self.wang_cards: list[Card] = []
         self.other_cards: list[Card] = []
-        self.player = player
         self.num_count = {}
+        self.player = player
 
         self.cards = [Puke[c] for c in sorted(cards, reverse=True)]
 
@@ -88,31 +96,42 @@ class OutCard(Level):
             return OutCate.Three
         elif count == 4:
             if len(self.wang_cards) == 4:
-                return OutCate.WangZha
+                return OutCate.ZhaWang
             return self.is_ZhaDan()
         elif count == 5:
             if self.is_ZhaDan() != OutCate.Error:
-                return OutCate.ZhaDan
+                return OutCate.ZhaDan5
             if self.is_FeiJi() != OutCate.Error:
                 return OutCate.FeiJi
             return self.is_ShunZi()
         elif count == 6:
-            if self.is_ZhaDan() != OutCate.Error:
-                return OutCate.ZhaDan
             if self.is_ZiMeiDui() != OutCate.Error:
                 return OutCate.ZiMeiDui
             if self.is_GangBan() != OutCate.Error:
                 return OutCate.GangBan
-            return OutCate.Error
+            return self.is_ZhaDan()
         else:
             return self.is_ZhaDan()
 
     def is_ZhaDan(self):
         if len(self.wang_cards):
             return OutCate.Error
-        if self.numKinds == 1:
+        if self.numKinds == 1 and self.cardCount > 3:
             self.cards = self.other_cards + self.red_cards
-            return OutCate.ZhaDan
+            if self.cardCount == 4:
+                return OutCate.ZhaDan4
+            elif self.cardCount == 5:
+                return OutCate.ZhaDan5
+            elif self.cardCount == 6:
+                return OutCate.ZhaDan6
+            elif self.cardCount == 7:
+                return OutCate.ZhaDan7
+            elif self.cardCount == 8:
+                return OutCate.ZhaDan8
+            elif self.cardCount == 9:
+                return OutCate.ZhaDan9
+            else:
+                return OutCate.ZhaDanS
         return OutCate.Error
 
     def is_ShunZi(self):
@@ -135,7 +154,7 @@ class OutCard(Level):
                 return OutCate.Error
 
         redCount = self.redCount
-        rt = OutCate.THS
+        rt = OutCate.ZhaDan5THS
         self.cards.clear()
         firstCate = self.other_cards[0].cate
         nextnum = self.other_cards[0].num
@@ -327,11 +346,9 @@ class OutCard(Level):
         if self.val == -1:
             return self.cate.value
         else:
-            s = ""
-            if self.val == self.curLevel:
-                s = "@"
-            return s + Card.get_num_str(self.val) + self.cate.value
-
+            s = "@" if self.val == self.curLevel else " "
+            return self.cate.value + s + str(self.val_str())
+        
     def __eq__(self, p):
         if not isinstance(p, OutCard):
             raise TypeError()
@@ -341,33 +358,23 @@ class OutCard(Level):
         if not isinstance(p, OutCard):
             raise TypeError()
 
-        if not self.cate.isValid() or not p.cate.isValid():
+        if not (self.cate.isValid() and p.cate.isValid()):
             return False
 
-        if self.cate == OutCate.WangZha:
-            return False
-        elif self.cate == OutCate.THS:
-            if p.cate == OutCate.WangZha:
-                return True
-            elif p.cate == OutCate.THS:
+        if self.cate.isZhaDan():
+            if self.cate == p.cate:
                 return self.numOrder.index(self.val) < p.numOrder.index(p.val)
-            elif p.cate == OutCate.ZhaDan:
-                return p.cardCount > 5
-            return False
-        elif self.cate == OutCate.ZhaDan:
-            if p.cate == OutCate.WangZha:
-                return True
-            elif p.cate == OutCate.THS:
-                return self.cardCount <= 5
-            elif p.cate == OutCate.ZhaDan:
-                if self.cardCount == p.cardCount:
-                    return self.numOrder.index(self.val) < p.numOrder.index(p.val)
-                return self.cardCount < p.cardCount
-            return False
+            elif p.cate.isZhaDan():
+                return self.cate.name < p.cate.name
+            else:
+                return False
         elif self.cate == p.cate:
-            return self.numOrder.index(self.val) < p.numOrder.index(p.val)
-
-        return p.cate in [OutCate.THS, OutCate.ZhaDan, OutCate.WangZha]
+            if self.cate in [OutCate.ShunZi, OutCate.GangBan, OutCate.ZiMeiDui]:
+                return self.val < p.val
+            else:
+                return self.numOrder.index(self.val) < p.numOrder.index(p.val)
+        else:
+            return p.cate.isZhaDan()
 
     def __le__(self, p):
         return self < p or self == p
@@ -394,4 +401,4 @@ if __name__ == "__main__":
     # s.append(Cate_str[random.randint(0, 3)] + Card.get_num_str(random.randint(10, 12)))
     cardVals = [Card.getCardVal(c) for c in s]
     o = OutCard(cardVals, 8)
-    print(o, o.val_str())
+    print(o)

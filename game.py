@@ -2,12 +2,13 @@ import random
 from puke import Puke, Card
 from out import OutCard
 import player
+import logging
+from event import Game_Event_Cate
+
+logger = logging.getLogger()
 
 
 class Team:
-
-    _level = 0  # 当前打几 index of 234567890JQKA
-
     def __init__(self, p1, p2):
         p1.partner = p2.sit
         p2.partner = p1.sit
@@ -15,6 +16,7 @@ class Team:
         self.name = p1.name + p2.name
         self.levelCount = 0
         self.on_desk = False  # 在台上
+        self._level = 0  # 当前打几 index of 234567890JQKA
         self.level = 0
 
     @property
@@ -38,15 +40,16 @@ winner_title = ["头游", "二游", "三游", "末游"]
 
 
 class Table:
+
     def __init__(self):
-        self.sitName = "南东北西"  # "下右上左" "我下对上"
         self.players: list[player.Player] = [None for i in range(4)]
-        self.winner = []
-        self.ondesk_cards = []
-        self.teams = []
+        self.winner: list[int] = []
+        self.teams: list[Team] = []
+        self.ondesk_cards: list[OutCard] = []
 
         self._curTeam = 0
         self.firstPlayer = 0
+        self.sitName = "南东北西"  # "下右上左" "我下对上"
 
     @property
     def curTeam(self):
@@ -76,7 +79,8 @@ class Table:
         for i in range(len(self.players)):
             if self.players[i] == None:
                 return False
-            self.players[i].name = self.sitName[i]
+            if self.players[i].name == "":
+                self.players[i].name = self.sitName[i]
             self.players[i].sit = i
 
         self.teams = [
@@ -115,13 +119,13 @@ class Table:
         random.shuffle(cards)
         i = 0
         for p in self.players:
-            p.set_cards(cards[i : i + 27])
+            p.onEvent(Game_Event_Cate.GE_Deal, cards[i : i + 27])
             i += 27
 
     def back(self, giver, givecard, backer):
         backcard = self.players[backer].back(givecard)
         self.players[giver].get_back(backcard)
-        print(
+        logger.debug(
             "{} 贡牌 {} 给 {}, 得到还牌 {}".format(
                 self.players[giver].name,
                 Puke[givecard],
@@ -142,9 +146,9 @@ class Table:
 
         if G_count == 2:
             if double_give:
-                print(self.teams[self.winner[-1] % 2].name, "抗贡!!!")
+                logger.debug(f"{self.teams[self.winner[-1] % 2].name}抗贡!!!")
             else:
-                print(self.players[self.winner[-1]].name, "抗贡!!!")
+                logger.debug(f"{self.players[self.winner[-1]].name}抗贡!!!")
             # 抗贡 头游先出
             self.firstPlayer = self.winner[0]
             return
@@ -196,14 +200,12 @@ class Table:
                 firstPlayer = get_teammate(firstPlayer)
                 strFirts = "接风"
             if showOut:
-                print(
-                    self.players[firstPlayer].name,
-                    f"({self.players[firstPlayer].cardCount})",
-                    strFirts,
+                logger.debug(
+                    f"[{self.sitName[firstPlayer]}] {self.players[firstPlayer].name} {strFirts}"
                 )
             passed = 0
             nextPlayer = firstPlayer
-            while passed < len(self.players) - 1:
+            while passed < len(self.players) - 1 and not self.is_level_over():
                 if nextPlayer in self.winner:
                     passed += 1
                 else:
@@ -212,26 +214,16 @@ class Table:
                     outCount += 1
 
                     if showOut:
+                        tip = str(curPlayer)
                         if outcate.isValid():
-                            out = self.ondesk_cards[-1]
-                            print(
-                                curPlayer.name,
-                                ":",
-                                out,
-                                out.val_str(),
-                                end=" ",
-                            )
+                            val = self.ondesk_cards[-1]
                             if curPlayer.cardCount == 0:
-                                print("\t", winner_title[len(self.winner)])
-                            else:
-                                print(f"\t({curPlayer.cardCount})")
+                                tip = winner_title[len(self.winner)]
                         else:
-                            print(
-                                curPlayer.name,
-                                ":",
-                                outcate.value,
-                                f"\t({curPlayer.cardCount})",
-                            )
+                            val = outcate.value
+                        logger.debug(
+                            f"[{self.sitName[curPlayer.sit]}] {curPlayer.name}:{val}\t{tip}"
+                        )
 
                     if outcate.isValid():
                         if curPlayer.cardCount == 0:
@@ -261,51 +253,36 @@ class Table:
                 if not i in self.winner:
                     self.winner.append(i)
         winscore = 4 - self.winner.index(get_teammate(self.winner[0]))
+        self.gameCount += 1
 
-        if self._curTeam == (self.winner[0] + 1) % 2:
-            los_team = self.curTeam
-            if los_team.level == 12 and los_team.levelCount == 3:  # 3把没过A
-                los_team.level = 0
-                print(
-                    "{}3把A没过, 下次从{}开始".format(
-                        los_team.name, self.get_level_name(los_team.level)
-                    )
-                )
+        curTeamWin = self._curTeam == self.winner[0] % 2
+        if self.curTeam.level == 12:
+            if curTeamWin and winscore >= 2:
+                is_over = True
+            elif self.curTeam.levelCount == 3:  # 3把没过A
+                self.curTeam.level = 0
+                logger.info(f"{self.curTeam.name}3把A没过, 回到2")
 
         self._curTeam = self.winner[0] % 2
         self.firstPlayer = self.winner[-1]
-        win_team = self.curTeam
-        if win_team.level == 12:
-            if winscore >= 2:
-                is_over = True
-            elif win_team.levelCount > 3:  # 3把没过A
-                win_team.level = winscore
-                print(
-                    "{}3把A没过, 下次从{}开始".format(
-                        win_team.name, self.get_level_name(win_team.level)
-                    )
-                )
-        win_team.level = min(12, win_team.level + winscore)
 
-        print(
-            "第{}局结束: {}  {} 赢, 得{}分 ".format(
-                self.gameCount + 1,
+        if not is_over:
+            self.curTeam.level = min(12, self.curTeam.level + winscore)
+
+        logger.info(
+            "第{}局结束: {}  {} 赢 {}分 \n".format(
+                self.gameCount,
                 [self.players[i].name for i in self.winner],
-                win_team.name,
+                self.curTeam.name,
                 winscore,
             )
         )
-
-        print()
-
-        if not is_over:
-            self.gameCount += 1
 
         return is_over
 
     def run(self):
         while not self.is_game_over():
-            print(
+            logger.info(
                 "第{}局开始: {} 打 {}\t现在比分 {}:{} - {}:{}".format(
                     self.gameCount + 1,
                     self.curTeam.name,
@@ -319,24 +296,42 @@ class Table:
 
             self.deal()
             self.give()
-            print(self)
-            input("Enter to continue ....")
+            logger.debug(str(self))
             self.play(True)
 
+    def broadcast(self, e, info):
+        for p in self.players:
+            p.onEvent(e, info)
+
     def __str__(self):
-        if len(t.teams) == 0:
+        if len(self.teams) == 0:
             return "未组队,或玩家人数不足"
         s = f"第{self.gameCount+1}局 打{self.get_level_name()} {self.players[self.firstPlayer].name }先出"
-        for p in self.players:
-            s += "\n" + str(p)
+        for i in range(len(self.sitName)):
+            s += f"\n[{self.sitName[i]}] {self.players[i]}"
         return s
 
 
-if __name__ == "__main__":
+def main():
     t = Table()
+    pName = ["张三", "李四", "王五", "赵六"]
     for i in range(4):
-        t.join_player(player.Player())
+        t.join_player(player.Player(pName[i]))
 
     if t.start():
         t.run()
-        print(f"Game Over {t.curTeam.name} 赢了")
+        logger.info(
+            "Game Over {} 获胜 {}把过A 打了{}局, 比分 {}:{} - {}:{} \n".format(
+                t.curTeam.name,
+                t.curTeam.levelCount,
+                t.gameCount,
+                t.teams[0].name,
+                t.get_level_name(t.teams[0].level),
+                t.teams[1].name,
+                t.get_level_name(t.teams[1].level),
+            )
+        )
+
+
+if __name__ == "__main__":
+    main()
