@@ -4,6 +4,7 @@ from puke import Puke, Card
 from level import Level
 from event import *
 
+
 class Player(Level):
 
     def __init__(self, name=""):
@@ -32,12 +33,12 @@ class Player(Level):
 
         if len(desk_outs):
             if desk_outs[-1] >= out:
-                return OutCate.Pass
+                return OutCard([], self.curLevel, self.sit)
 
         desk_outs.append(out)
         self.removeCards(select_cards)
 
-        return out.cate
+        return out
 
     @abstractmethod
     def give(self):
@@ -112,22 +113,22 @@ class Player(Level):
 
         return c
 
-    def onEvent(self,e:Game_Event_Cate,info):
+    @abstractmethod
+    def onEvent(self, e: Game_Event_Cate, info):
+        # GE_Ready = "就绪"  # [playersname] * 4
+        # GE_Deal = "发牌"   # level
+        # GE_Give = "贡牌"   # (giver, Puke)
+        # GE_Back = "还牌"   # (giver, Puke, backer, Puke)
+        # GE_Anti = "抗供"   # [Antier]
+        # GE_Start = "开始"  # firster
+        # GE_Play = "出牌"   # outCard
+        # GE_Over = "结束"   # winner[]
+        # GE_End = "游戏结束"
         if e == Game_Event_Cate.GE_Ready:
-            #记录玩家信息
-            pass
+            self.playerNames = info
         elif e == Game_Event_Cate.GE_Deal:
-            self.set_cards(info)
-            #更新界面
-        elif e == Game_Event_Cate.GE_Back:
-            #{}贡{}给{}，得到还{}
-            pass
-        elif e == Game_Event_Cate.GE_Play:
-            #info : OutCard
-            pass
-        elif e == Game_Event_Cate.GE_Over:
-            #info : winner
-            pass
+            self.curLevel = info
+
 
     def __str__(self):
         s = f"{self.name}:"
@@ -135,3 +136,4 @@ class Player(Level):
             for c in self.numCards[n]:
                 s += " " + str(Puke[c])
         return s
+

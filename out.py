@@ -31,7 +31,6 @@ class OutCate(Enum):
 
 
 class OutCard(Level):
-    
     def __init__(self, cards: list, level, player=None):
         super().__init__()
         self.cards: list[Card] = []
@@ -40,11 +39,9 @@ class OutCard(Level):
         self.other_cards: list[Card] = []
         self.num_count = {}
         self.player = player
-
         self.cards = [Puke[c] for c in sorted(cards, reverse=True)]
 
         self.curLevel = level
-        self.cardCount = len(self.cards)
         for c in self.cards:
             isred = False
             if c.cate_str() == "♥" and c.num == level:
@@ -61,9 +58,6 @@ class OutCard(Level):
                 else:
                     self.num_count[c.num] += 1
 
-        self.redCount = len(self.red_cards)
-        self.numKinds = len(self.num_count)
-
         self.val = -1
         self.cate = self.get_cate()
         if self.cate in (OutCate.Pass, OutCate.Error):
@@ -71,6 +65,18 @@ class OutCard(Level):
 
         if self.val == -1:
             self.val = self.cards[0].num
+
+    @property
+    def cardCount(self):
+        return len(self.cards)
+
+    @property
+    def redCount(self):
+        return len(self.red_cards)
+
+    @property
+    def numKinds(self):
+        return len(self.num_count)
 
     def get_cate(self) -> OutCate:
         count = self.cardCount
@@ -348,7 +354,7 @@ class OutCard(Level):
         else:
             s = "@" if self.val == self.curLevel else " "
             return self.cate.value + s + str(self.val_str())
-        
+
     def __eq__(self, p):
         if not isinstance(p, OutCard):
             raise TypeError()

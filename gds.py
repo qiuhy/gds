@@ -5,6 +5,9 @@ import time
 
 logger = logging.getLogger()
 if __name__ == "__main__":
+    if not os.path.exists(os.getcwd()+"/log"):
+        os.mkdir(os.getcwd()+"/log")
+     
     logger.setLevel(logging.DEBUG)
 
     deubgformatter = logging.Formatter("%(levelname)s : %(message)s")

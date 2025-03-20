@@ -2,6 +2,7 @@ import random
 from puke import Puke, Card
 from out import OutCard
 import player
+import looker
 import logging
 from event import Game_Event_Cate
 
@@ -15,7 +16,6 @@ class Team:
         self.players = [p1, p2]
         self.name = p1.name + p2.name
         self.levelCount = 0
-        self.on_desk = False  # 在台上
         self._level = 0  # 当前打几 index of 234567890JQKA
         self.level = 0
 
@@ -96,6 +96,7 @@ class Table:
             self.gameCount = 0
             self.winner = []
             self.ondesk_cards = []
+            self.broadcast(Game_Event_Cate.GE_Ready)
             return True
         return False
 
@@ -119,12 +120,14 @@ class Table:
         random.shuffle(cards)
         i = 0
         for p in self.players:
-            p.onEvent(Game_Event_Cate.GE_Deal, cards[i : i + 27])
+            p.set_cards(cards[i : i + 27])
             i += 27
+        self.broadcast(Game_Event_Cate.GE_Deal)
 
     def back(self, giver, givecard, backer):
         backcard = self.players[backer].back(givecard)
         self.players[giver].get_back(backcard)
+        self.broadcast(Game_Event_Cate.GE_Back, (giver, givecard, backer, backcard))
         logger.debug(
             "{} 贡牌 {} 给 {}, 得到还牌 {}".format(
                 self.players[giver].name,
@@ -134,28 +137,42 @@ class Table:
             )
         )
 
-    def give(self):
+    def anti(self):
+        if len(self.winner) < 2:
+            return True
+        # 抗贡
+        double_give = self.winner[-2] == get_teammate(self.winner[-1])
+
+        G_count1 = len(self.players[self.winner[-1]].numCards[14])
+        G_count2 = len(self.players[self.winner[-2]].numCards[14]) if double_give else 0
+
+        if G_count1 + G_count2 == 2:
+            antier = []
+            if G_count1:
+                antier.append(self.winner[-1])
+            if G_count2:
+                antier.append(self.winner[-2])
+
+            antier_name = [self.players[p].name for p in antier]
+            logger.debug(f"{antier_name} 抗贡!!!")
+            self.broadcast(Game_Event_Cate.GE_Anti, antier)
+            # 抗贡 头游先出
+            self.firstPlayer = self.winner[0]
+
+            return True
+        return False
+
+    def give_back(self):
         if len(self.winner) == 0:
             return
 
         double_give = self.winner[-2] == get_teammate(self.winner[-1])
 
-        G_count = len(self.players[self.winner[-1]].numCards[14])
-        if double_give:
-            G_count += len(self.players[self.winner[-2]].numCards[14])
-
-        if G_count == 2:
-            if double_give:
-                logger.debug(f"{self.teams[self.winner[-1] % 2].name}抗贡!!!")
-            else:
-                logger.debug(f"{self.players[self.winner[-1]].name}抗贡!!!")
-            # 抗贡 头游先出
-            self.firstPlayer = self.winner[0]
-            return
-
         give_card = [self.players[self.winner[-1]].give()]
+        self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-1], give_card))
         if double_give:
             give_card.append(self.players[self.winner[-2]].give())
+            self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-2], give_card))
 
         if double_give:
             # 双贡 供牌大的先出 ，一样大 顺时针方向进贡 头游的下家先出
@@ -187,7 +204,7 @@ class Table:
             self.back(self.winner[-1], give_card[0], self.winner[0])
             self.firstPlayer = self.winner[-1]
 
-    def play(self, showOut):
+    def play(self):
         firstPlayer = self.firstPlayer
         outCount = 0
 
@@ -199,10 +216,8 @@ class Table:
             if firstPlayer in self.winner:
                 firstPlayer = get_teammate(firstPlayer)
                 strFirts = "接风"
-            if showOut:
-                logger.debug(
-                    f"[{self.sitName[firstPlayer]}] {self.players[firstPlayer].name} {strFirts}"
-                )
+            curPlayer = self.players[firstPlayer]
+            logger.debug(f"[{self.sitName[firstPlayer]}] {curPlayer.name} {strFirts}")
             passed = 0
             nextPlayer = firstPlayer
             while passed < len(self.players) - 1 and not self.is_level_over():
@@ -210,22 +225,22 @@ class Table:
                     passed += 1
                 else:
                     curPlayer = self.players[nextPlayer]
-                    outcate = curPlayer.action(self.ondesk_cards)
+                    out = curPlayer.action(self.ondesk_cards)
+                    self.broadcast(Game_Event_Cate.GE_Play ,out)
                     outCount += 1
 
-                    if showOut:
-                        tip = str(curPlayer)
-                        if outcate.isValid():
-                            val = self.ondesk_cards[-1]
-                            if curPlayer.cardCount == 0:
-                                tip = winner_title[len(self.winner)]
-                        else:
-                            val = outcate.value
-                        logger.debug(
-                            f"[{self.sitName[curPlayer.sit]}] {curPlayer.name}:{val}\t{tip}"
-                        )
+                    tip = str(curPlayer)
+                    if out.cate.isValid():
+                        val = out
+                        if curPlayer.cardCount == 0:
+                            tip = winner_title[len(self.winner)]
+                    else:
+                        val = out.cate.value
+                    logger.debug(
+                        f"[{self.sitName[curPlayer.sit]}] {curPlayer.name}:{val}\t{tip}"
+                    )
 
-                    if outcate.isValid():
+                    if out.cate.isValid():
                         if curPlayer.cardCount == 0:
                             self.winner.append(nextPlayer)
                         firstPlayer = nextPlayer
@@ -295,11 +310,26 @@ class Table:
             )
 
             self.deal()
-            self.give()
+            if self.gameCount:
+                if not self.anti():
+                    self.give_back()
             logger.debug(str(self))
-            self.play(True)
+            self.broadcast(Game_Event_Cate.GE_Start)
+            self.play()
+            self.broadcast(Game_Event_Cate.GE_Over)
+        self.broadcast(Game_Event_Cate.GE_End)
 
-    def broadcast(self, e, info):
+    def broadcast(self, e: Game_Event_Cate, info=None):
+        if e == Game_Event_Cate.GE_Ready:
+            info = [p.name for p in self.players]
+        elif e == Game_Event_Cate.GE_Deal:
+            info = self.curLevel
+        elif e == Game_Event_Cate.GE_Start:
+            info = self.firstPlayer
+        elif e == Game_Event_Cate.GE_Over:
+            info = self.winner
+        elif info is None:
+            return
         for p in self.players:
             p.onEvent(e, info)
 
@@ -314,9 +344,10 @@ class Table:
 
 def main():
     t = Table()
-    pName = ["张三", "李四", "王五", "赵六"]
-    for i in range(4):
-        t.join_player(player.Player(pName[i]))
+    t.join_player(player.Player("张三"))
+    t.join_player(player.Player("李四"))
+    t.join_player(player.Player("王五"))
+    t.join_player(looker.Looker("Look"))
 
     if t.start():
         t.run()
