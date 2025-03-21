@@ -1,26 +1,45 @@
 # hy_qiu 扑克牌基础类
 # 花色和牌点
 #
-Cate_str = "♦♣♥♠gG"#"♦♣♥♠🃟🃏"
+Cate_str = "♦♣♥♠gG"  # "♦♣♥♠🃟🃏"
 Num_str = "234567890JQKAgG"
 Val_str = "🂢🂣🂤🂥🂦🂧🂨🂩🂪🂫🂬🂭🂡🂲🂳🂴🂵🂶🂷🂸🂹🂺🂻🂼🂽🂱🃒🃓🃔🃕🃖🃗🃘🃙🃚🃛🃜🃝🃑🃂🃃🃄🃅🃆🃇🃈🃉🃊🃋🃌🃍🃁🃟🃏"
 
 
 class Card:
     @staticmethod
+    def get_val_num(v):
+        if v >=54:
+            v = v % 54
+        if v < 52:
+            return v // 4
+        elif v == 52:
+            return 13
+        else:
+            return 14
+    
+    @staticmethod
+    def get_val_cate(v):
+        if v >=54:
+            v = v % 54
+        if v < 52:
+            return v % 4
+        elif v == 52:
+            return 4
+        else:
+            return 5
+    
+    @staticmethod
     def get_num_str(num):
         return Num_str[num]
 
     @staticmethod
-    def get_cate_str(idx):
-        idx = idx % 54
-        if idx < 52:            
-            return Cate_str[idx % 4]
-        elif idx == 52:            
-            return Cate_str[4]
-        else:
-            return Cate_str[5]
-        
+    def get_cate_str(cate):
+        return Cate_str[cate]
+
+    @staticmethod
+    def get_redVal(num):
+        return num * 4 + 2
 
     @staticmethod
     def getCardVal(cardstr):
@@ -31,16 +50,8 @@ class Card:
         return cate + num * 4
 
     def __init__(self, v):
-        v = v % 54
-        if v < 52:
-            self.cate = v % 4
-            self.num = v // 4
-        elif v == 52:
-            self.cate = 4
-            self.num = 13
-        else:
-            self.cate = 5
-            self.num = 14
+        self.cate = Card.get_val_cate(v)
+        self.num = Card.get_val_num(v)
         self.val = v
 
     def val_str(self):

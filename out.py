@@ -46,7 +46,7 @@ class OutCard(Level):
         self.curLevel = level
         for c in self.cards:
             isred = False
-            if c.cate_str() == "♥" and c.num == level:
+            if c.val == Card.get_redVal(level):
                 self.red_cards.append(c)
                 isred = True
             elif c.num_str() == "g" or c.num_str() == "G":

@@ -14,19 +14,33 @@ class Player(Level):
         self.numCards = [[] for i in range(15)]  # "234567890JQKAgG"
         self.name = name
         self.curLevel = 0
-
+    
     @property
     def cardCount(self):
         return sum(len(cards) for cards in self.numCards)
 
+    @property
+    def allNums(self):
+        for num in reversed(self.numOrder):
+            if len(self.numCards[num]) == 0:
+                continue
+            yield num
+    
+    @property
+    def numCount(self):
+        return sum(1 for _ in self.allNums)
+    
     def set_cards(self, cards):
         for n in self.numCards:
             n.clear()
 
         for c in cards:
-            num = Puke[c].num
+            num = Card.get_val_num(c)
             self.numCards[num].append(c)
-        self.redCard = Card.getCardVal("♥" + Card.get_num_str(self.curLevel))
+
+        for n in self.allNums:
+            self.numCards[num].sort()
+        self.redCard = Card.get_redVal(self.curLevel)
 
     def action(self, desk_outs: list[OutCard]):
         select_cards = self.play(desk_outs)
@@ -44,7 +58,7 @@ class Player(Level):
     @abstractmethod
     def give(self):
         # 贡牌
-        for num in reversed(self.numOrder):
+        for num in self.allNums:
             for c in self.numCards[num]:
                 if c != self.redCard:
                     self.numCards[num].remove(c)
@@ -54,12 +68,20 @@ class Player(Level):
     @abstractmethod
     def back(self, c):
         # 得到贡牌，再还牌
-        num = Puke[c].num
+        num = Card.get_val_num(c)
         self.numCards[num].append(c)
+        
+        #优先还最小单张，不能超过10
+        for num in self.numOrder:
+            if num > 8:
+                break
+            if len(self.numCards[num]) == 1:
+                return self.numCards[num].pop()
 
         for num in self.numOrder:
             if len(self.numCards[num]):
                 return self.numCards[num].pop()
+            
         return None
 
     def get_back(self, c):
@@ -69,9 +91,9 @@ class Player(Level):
 
     def removeCards(self, cards):
         for c in cards:
-            num = Puke[c].num
+            num = Card.get_val_num(c)
             self.numCards[num].remove(c)
-
+    
     @abstractmethod
     def play(self, desk_outs: list[OutCard]) -> list:
         # 出牌
@@ -122,6 +144,5 @@ class Player(Level):
         s = f"{self.name}:"
         for n in reversed(self.numOrder):
             for c in self.numCards[n]:
-                s += " " + str(Puke[c])
+                s += f" {Puke[c]}"
         return s
-
