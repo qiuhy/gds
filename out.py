@@ -22,10 +22,12 @@ class OutCate(Enum):
     ZhaDanS = "十炸"
     ZhaWang = "王炸"
     Error = "无效"
-
+    
+    @property
     def isZhaDan(self):
         return self.name.startswith("Zha")
-
+   
+    @property
     def isValid(self):
         return self not in [OutCate.Pass, OutCate.Error]
 
@@ -364,13 +366,13 @@ class OutCard(Level):
         if not isinstance(p, OutCard):
             raise TypeError()
 
-        if not (self.cate.isValid() and p.cate.isValid()):
+        if not (self.cate.isValid and p.cate.isValid):
             return False
 
-        if self.cate.isZhaDan():
+        if self.cate.isZhaDan:
             if self.cate == p.cate:
                 return self.numOrder.index(self.val) < p.numOrder.index(p.val)
-            elif p.cate.isZhaDan():
+            elif p.cate.isZhaDan:
                 return self.cate.name < p.cate.name
             else:
                 return False
@@ -380,7 +382,7 @@ class OutCard(Level):
             else:
                 return self.numOrder.index(self.val) < p.numOrder.index(p.val)
         else:
-            return p.cate.isZhaDan()
+            return p.cate.isZhaDan
 
     def __le__(self, p):
         return self < p or self == p

@@ -169,10 +169,10 @@ class Table:
         double_give = self.winner[-2] == get_teammate(self.winner[-1])
 
         give_card = [self.players[self.winner[-1]].give()]
-        self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-1], give_card))
+        self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-1], give_card[0]))
         if double_give:
             give_card.append(self.players[self.winner[-2]].give())
-            self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-2], give_card))
+            self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-2], give_card[1]))
 
         if double_give:
             # 双贡 供牌大的先出 ，一样大 顺时针方向进贡 头游的下家先出
@@ -218,6 +218,7 @@ class Table:
                 strFirts = "接风"
             curPlayer = self.players[firstPlayer]
             logger.debug(f"[{self.sitName[firstPlayer]}] {curPlayer.name} {strFirts}")
+            self.broadcast(Game_Event_Cate.GE_Start, firstPlayer)
             passed = 0
             nextPlayer = firstPlayer
             while passed < len(self.players) - 1 and not self.is_level_over():
@@ -226,11 +227,11 @@ class Table:
                 else:
                     curPlayer = self.players[nextPlayer]
                     out = curPlayer.action(self.ondesk_cards)
-                    self.broadcast(Game_Event_Cate.GE_Play ,out)
+                    self.broadcast(Game_Event_Cate.GE_Play, out)
                     outCount += 1
 
                     tip = str(curPlayer)
-                    if out.cate.isValid():
+                    if out.cate.isValid:
                         val = out
                         if curPlayer.cardCount == 0:
                             tip = winner_title[len(self.winner)]
@@ -240,7 +241,7 @@ class Table:
                         f"[{self.sitName[curPlayer.sit]}] {curPlayer.name}:{val}\t{tip}"
                     )
 
-                    if out.cate.isValid():
+                    if out.cate.isValid:
                         if curPlayer.cardCount == 0:
                             self.winner.append(nextPlayer)
                         firstPlayer = nextPlayer
@@ -323,11 +324,13 @@ class Table:
         if e == Game_Event_Cate.GE_Ready:
             info = [p.name for p in self.players]
         elif e == Game_Event_Cate.GE_Deal:
-            info = self.curLevel
+            info = self.curTeam.name
         elif e == Game_Event_Cate.GE_Start:
             info = self.firstPlayer
         elif e == Game_Event_Cate.GE_Over:
             info = self.winner
+        elif e == Game_Event_Cate.GE_End:
+            info = [p.sit for p in self.curTeam.players]
         elif info is None:
             return
         for p in self.players:

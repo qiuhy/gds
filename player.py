@@ -26,6 +26,7 @@ class Player(Level):
         for c in cards:
             num = Puke[c].num
             self.numCards[num].append(c)
+        self.redCard = Card.getCardVal("♥" + Card.get_num_str(self.curLevel))
 
     def action(self, desk_outs: list[OutCard]):
         select_cards = self.play(desk_outs)
@@ -43,10 +44,9 @@ class Player(Level):
     @abstractmethod
     def give(self):
         # 贡牌
-        redcard = Card.getCardVal("♥" + Card.get_num_str(self.curLevel))
         for num in reversed(self.numOrder):
             for c in self.numCards[num]:
-                if c != redcard:
+                if c != self.redCard:
                     self.numCards[num].remove(c)
                     return c
         return None
@@ -115,20 +115,8 @@ class Player(Level):
 
     @abstractmethod
     def onEvent(self, e: Game_Event_Cate, info):
-        # GE_Ready = "就绪"  # [playersname] * 4
-        # GE_Deal = "发牌"   # level
-        # GE_Give = "贡牌"   # (giver, Puke)
-        # GE_Back = "还牌"   # (giver, Puke, backer, Puke)
-        # GE_Anti = "抗供"   # [Antier]
-        # GE_Start = "开始"  # firster
-        # GE_Play = "出牌"   # outCard
-        # GE_Over = "结束"   # winner[]
-        # GE_End = "游戏结束"
         if e == Game_Event_Cate.GE_Ready:
             self.playerNames = info
-        elif e == Game_Event_Cate.GE_Deal:
-            self.curLevel = info
-
 
     def __str__(self):
         s = f"{self.name}:"
