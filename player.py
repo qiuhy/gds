@@ -15,6 +15,11 @@ class Player(Level):
         self.name = name
         self.curLevel = 0
     
+    @property 
+    def winner_title(self):
+        return ["头游", "二游", "三游", "末游"]
+
+
     @property
     def cardCount(self):
         return sum(len(cards) for cards in self.numCards)
@@ -25,11 +30,11 @@ class Player(Level):
             if len(self.numCards[num]) == 0:
                 continue
             yield num
-    
+
     @property
     def numCount(self):
         return sum(1 for _ in self.allNums)
-    
+
     def set_cards(self, cards):
         for n in self.numCards:
             n.clear()
@@ -40,7 +45,6 @@ class Player(Level):
 
         for n in self.allNums:
             self.numCards[num].sort()
-        self.redCard = Card.get_redVal(self.curLevel)
 
     def action(self, desk_outs: list[OutCard]):
         select_cards = self.play(desk_outs)
@@ -70,30 +74,31 @@ class Player(Level):
         # 得到贡牌，再还牌
         num = Card.get_val_num(c)
         self.numCards[num].append(c)
-        
-        #优先还最小单张，不能超过10
+        self.numCards[num].sort()
+
+        # 优先还最小单张
         for num in self.numOrder:
-            if num > 8:
-                break
             if len(self.numCards[num]) == 1:
-                return self.numCards[num].pop()
+                if self.isValidBackCard(self.numCards[num][0]):
+                    return self.numCards[num].pop()
 
         for num in self.numOrder:
             if len(self.numCards[num]):
                 return self.numCards[num].pop()
-            
+
         return None
 
     def get_back(self, c):
         # 拿到还牌
-        num = Puke[c].num
+        num = Card.get_val_num(c)
         self.numCards[num].append(c)
+        self.numCards[num].sort()
 
     def removeCards(self, cards):
         for c in cards:
             num = Card.get_val_num(c)
             self.numCards[num].remove(c)
-    
+
     @abstractmethod
     def play(self, desk_outs: list[OutCard]) -> list:
         # 出牌
@@ -110,9 +115,9 @@ class Player(Level):
 
         return curOut
 
-    def get_out(self, prv: OutCard):
+    def get_out(self, prvOut: OutCard):
         c = []
-        if prv is None:
+        if prvOut is None:
             # 先出最小的
             for n in self.numOrder:
                 if len(self.numCards[n]) < 4 and len(self.numCards[n]) > 0:
@@ -123,17 +128,26 @@ class Player(Level):
                     return self.numCards[n].copy()
 
         else:
-            prvOrder = self.numOrder.index(prv.val)
+            prvOrder = self.numOrder.index(prvOut.val)
             # 尽量管住   同类牌，炸
-            for n in self.numOrder[prvOrder + 1 :]:
-                if len(self.numCards[n]) == prv.cardCount:
-                    return self.numCards[n].copy()
+            if not prvOut.cate.isZhaDan:
+                for n in self.numOrder[prvOrder + 1 :]:
+                    if len(self.numCards[n]) == prvOut.cardCount:
+                        out = OutCard(self.numCards[n], self.curLevel)
+                        if out > prvOut:
+                            return self.numCards[n].copy()
 
             for n in self.numOrder:
                 if len(self.numCards[n]) >= 4:
-                    return self.numCards[n].copy()
+                    out = OutCard(self.numCards[n], self.curLevel)
+                    if out > prvOut:
+                        return self.numCards[n].copy()
 
         return c
+
+    def find_out(self,cate:OutCate):
+        #TODO
+        pass
 
     @abstractmethod
     def onEvent(self, e: Game_Event_Cate, info):

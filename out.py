@@ -22,11 +22,11 @@ class OutCate(Enum):
     ZhaDanS = "十炸"
     ZhaWang = "王炸"
     Error = "无效"
-    
+
     @property
     def isZhaDan(self):
         return self.name.startswith("Zha")
-   
+
     @property
     def isValid(self):
         return self not in [OutCate.Pass, OutCate.Error]
@@ -46,7 +46,7 @@ class OutCard(Level):
         self.curLevel = level
         for c in self.cards:
             isred = False
-            if c.val == Card.get_redVal(level):
+            if c.val == self.redCard:
                 self.red_cards.append(c)
                 isred = True
             elif c.num_str() == "g" or c.num_str() == "G":
@@ -354,7 +354,18 @@ class OutCard(Level):
         if self.val == -1:
             return self.cate.value
         else:
-            s = "@" if self.val == self.curLevel else " "
+            s = (
+                " "
+                if self.cate
+                in [
+                    OutCate.GangBan,
+                    OutCate.ShunZi,
+                    OutCate.ZiMeiDui,
+                    OutCate.ZhaDan5THS,
+                ]
+                or self.val != self.curLevel
+                else "@"
+            )
             return self.cate.value + s + str(self.val_str())
 
     def __eq__(self, p):

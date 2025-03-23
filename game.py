@@ -35,10 +35,6 @@ class Team:
 def get_teammate(s):
     return (s + 2) % 4
 
-
-winner_title = ["头游", "二游", "三游", "末游"]
-
-
 class Table:
 
     def __init__(self):
@@ -79,8 +75,6 @@ class Table:
         for i in range(len(self.players)):
             if self.players[i] == None:
                 return False
-            if self.players[i].name == "":
-                self.players[i].name = self.sitName[i]
             self.players[i].sit = i
 
         self.teams = [
@@ -120,7 +114,7 @@ class Table:
         random.shuffle(cards)
         i = 0
         for p in self.players:
-            p.set_cards(cards[i : i + 27])
+            p.set_cards(cards[i : i + 27].copy())
             i += 27
         self.broadcast(Game_Event_Cate.GE_Deal)
 
@@ -234,7 +228,7 @@ class Table:
                     if out.cate.isValid:
                         val = out
                         if curPlayer.cardCount == 0:
-                            tip = winner_title[len(self.winner)]
+                            tip = curPlayer.winner_title[len(self.winner)]
                     else:
                         val = out.cate.value
                     logger.debug(
@@ -244,6 +238,7 @@ class Table:
                     if out.cate.isValid:
                         if curPlayer.cardCount == 0:
                             self.winner.append(nextPlayer)
+                
                         firstPlayer = nextPlayer
                         passed = 0
                     else:
@@ -326,7 +321,8 @@ class Table:
         elif e == Game_Event_Cate.GE_Deal:
             info = self.curTeam.name
         elif e == Game_Event_Cate.GE_Start:
-            info = self.firstPlayer
+            if info is None:
+                info = self.firstPlayer
         elif e == Game_Event_Cate.GE_Over:
             info = self.winner
         elif e == Game_Event_Cate.GE_End:
@@ -347,10 +343,10 @@ class Table:
 
 def main():
     t = Table()
-    t.join_player(player.Player("张三"))
-    t.join_player(player.Player("李四"))
-    t.join_player(player.Player("王五"))
-    t.join_player(looker.Looker("Look"))
+    t.join_player(looker.Looker("南帝"))
+    t.join_player(player.Player("东邪"))
+    t.join_player(player.Player("北丐"))
+    t.join_player(player.Player("西毒"))
 
     if t.start():
         t.run()
