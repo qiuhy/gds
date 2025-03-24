@@ -9,6 +9,7 @@ from event import Game_Event_Cate
 from enum import Enum
 from out import OutCard
 from puke import *
+import time
 
 
 class CSI_Color(Enum):
@@ -176,7 +177,7 @@ class Looker(Player):
             self.width = 80
             self.height = 25
         self.width = min(100, self.width)
-        self.outArea = RECT(6, 4, self.width - 6, self.height - 10)
+        self.outArea = RECT(11, 4, self.width - 11, self.height - 10)
         self.playerNames = []
         self.playerRestCards = [27, 27, 27, 27]
         self.winner = []
@@ -199,12 +200,18 @@ class Looker(Player):
 
     def onDraw(self):
         CSI.clear()
-        CSI.move_cursor(1, 1)
-        CSI.reset_textStyle()
-        CSI.print(f"\t当前 {self.curTeamName} 打 {Card.get_num_str(self.curLevel)}")
+        self.drawHead()
         self.drawPlayer()
         self.drawAllCard()
-        pass
+
+    def drawHead(self, info=None):
+        CSI.reset_textStyle()
+        CSI.move_cursor(1, 1)
+        stip = f"\t当前 {self.curTeamName} 打 {Card.get_num_str(self.curLevel)}"
+        CSI.print(f"{stip:{self.width}}")
+        if not info is None:
+            CSI.move_cursor(1, 2)
+            CSI.print(f"{info:{self.width}}")
 
     def drawAllCard(self, pos=[]):
         CSI.reset_textStyle()
@@ -234,7 +241,7 @@ class Looker(Player):
             CSI_Color.Cyan,
             CSI_Color.Cyan,
         ]
-        
+
         if c == self.redCard:
             color = CSI_Color.Red
         else:
@@ -264,13 +271,13 @@ class Looker(Player):
             CSI.print(f"{outstr:^{a.width}}")
         elif player == (self.sit + 1) % 4:  # 下家
             CSI.move_cursor(a.centerX, a.centerY)
-            CSI.print(f"{outstr+" ":>{a.width//2-1}}")
+            CSI.print(f"{outstr:^{a.width//2}}")
         elif player == (self.sit + 2) % 4:  # 对家
             CSI.move_cursor(a.left, a.top)
             CSI.print(f"{outstr:^{a.width}}")
         elif player == (self.sit + 3) % 4:  # 上家
             CSI.move_cursor(a.left, a.centerY)
-            CSI.print(f"{outstr:<{a.width//2-1}}")
+            CSI.print(f"{outstr:^{a.width//2}}")
 
     def drawOut(self, out: OutCard):
         self.drawOut_str(out.player, str(out))
@@ -279,31 +286,42 @@ class Looker(Player):
         a = self.outArea
         name: str
         for i, name in enumerate(self.playerNames):
+            info = ""
             if self.playerRestCards[i] == 0:
                 if i not in self.winner:
                     self.winner.append(i)
-                name += f" ({self.winner_title[self.winner.index(i)]})"
-
+                info = f"({self.winner_title[self.winner.index(i)]})"
             elif self.playerRestCards[i] <= 10:
-                name += f" ({self.playerRestCards[i]})"
+                info = f"({self.playerRestCards[i]})"
 
             CSI.set_color(CSI_Color.Yellow, CSI_Color.Default, True)
             if i == self.sit:  # 我
                 CSI.move_cursor(a.left, a.bottom + 1)
-                CSI.print(f"{name:^{a.width}}")
-            elif i == (self.sit + 1) % 4:  # 下家
-                for j, n in enumerate(name.split(" ")):
-                    CSI.move_cursor(a.right + 5, a.centerY + j)
-                    CSI.print(n)
+                CSI.print(f"{name + " "+ info :^{a.width}}")
             elif i == (self.sit + 2) % 4:  # 对家
                 CSI.move_cursor(a.left, a.top - 1)
-                CSI.print(f"{name:^{a.width}}")
+                CSI.print(f"{name + " "+ info:^{a.width}}")
+            elif i == (self.sit + 1) % 4:  # 下家
+                CSI.move_cursor(a.right + 1, a.centerY)
+                CSI.print(f"{name:^10}")
+                CSI.move_cursor(a.right + 1, a.centerY + 1)
+                CSI.print(f"{info:^10}")
             elif i == (self.sit + 3) % 4:  # 上家
-                for j, n in enumerate(name.split(" ")):
-                    CSI.move_cursor(a.left - 5, a.centerY + j)
-                    CSI.print(n)
+                CSI.move_cursor(a.left - 11, a.centerY)
+                CSI.print(f"{name:^10}")
+                CSI.move_cursor(a.left - 11, a.centerY + 1)
+                CSI.print(f"{info:^10}")
         CSI.reset_textStyle()
         pass
+
+    def drawOutTip(self, player):
+        a = self.outArea
+        outTip = "↓→↑←"
+        CSI.move_cursor(a.centerX, a.centerY)
+        CSI.reset_textStyle()
+        CSI.set_color(CSI_Color.Yellow)
+        CSI.print(outTip[(4 + player - self.sit) % 4])
+        CSI.reset_textStyle()
 
     def afterReady(self, info):
         self.onInit()
@@ -322,8 +340,7 @@ class Looker(Player):
 
     def afterGive(self, info):
         (giver, givecard) = info
-        stip = f"{self.playerNames[giver]} 贡牌 {Puke[givecard]} "
-        self.drawInfo(stip)
+        self.drawInfo(f"{self.playerNames[giver]} 贡牌 {Puke[givecard]} ")
         if self.lookMode:
             keyboard.wait("enter")
         pass
@@ -342,17 +359,17 @@ class Looker(Player):
         pass
 
     def afterStart(self, info):
-        stip = f"{self.playerNames[info]} 先出"
         self.onDraw()
-        self.drawInfo(stip)
+        self.drawInfo(f"{self.playerNames[info]} 先出")
+        self.drawOutTip(info)
         if self.lookMode:
             keyboard.wait("enter")
         pass
 
     def afterWind(self, info):
-        stip = f"{self.playerNames[info]} 接风"
         self.onDraw()
-        self.drawInfo(stip)
+        self.drawInfo(f"{self.playerNames[info]} 接风")
+        self.drawOutTip(info)
         if self.lookMode:
             keyboard.wait("enter")
         pass
@@ -372,6 +389,13 @@ class Looker(Player):
             self.drawAllCard()
 
         self.drawOut(out)
+        self.drawInfo(f"{self.playerNames[out.player]}:{out}")
+
+        nextplayer = (out.player + 1) % 4
+        while nextplayer in self.winner:
+            nextplayer = (nextplayer + 1) % 4
+
+        self.drawOutTip(nextplayer)
 
         if self.lookMode:
             keyboard.wait("enter")
@@ -420,6 +444,13 @@ class JPX(Looker):
     @playMode.setter
     def playMode(self, mode: bool):
         if mode and self.numCount > 0:
+            # for x, num in enumerate(self.allNums):
+            #     if x == self.curX:
+            #         break
+            # else:
+            #     self.curX = 0
+            # if self.curY >= len(self.numCards[num]):
+            #     self.curY = len(self.numCards[num]) - 1
             if self.curX == -1:
                 self.curX = 0
                 self.curY = 0
@@ -459,7 +490,7 @@ class JPX(Looker):
     def play(self, desk_outs):
         self.playMode = True
         self.lastOut = desk_outs[-1] if len(desk_outs) else None
-        self.drawOut_str(self.sit, "")
+        # self.drawOut_str(self.sit, "")
         while self.playMode:
             CSI.flush()
 
@@ -467,7 +498,8 @@ class JPX(Looker):
         out = OutCard(cards, self.curLevel, self.sit)
         if out.cate.isValid:
             self.markedPos.clear()
-            self.onDraw()
+            # self.drawAllCard()
+        else:
             self.drawInfo(out)
         return cards
 
@@ -490,7 +522,6 @@ class JPX(Looker):
         return cards
 
     def onKey(self, e: keyboard.KeyboardEvent):
-        # "up,down,left,right,space,esc,enter"
         if self.playMode:
             if e.event_type == "up" and e.name == "q":
                 self.markedPos.clear()
@@ -539,7 +570,7 @@ class JPX(Looker):
                 else:
                     self.markedPos.append(curPos)
                 self.drawAllCard([curPos])
-            elif e.event_type == "down" and e.name == "z":
+            elif e.event_type == "up" and e.name == "z":
                 if len(self.markedPos):
                     self.onSaveCard()
         return False
@@ -578,8 +609,13 @@ class JPX(Looker):
         out = OutCard(markedCard, self.curLevel, self.sit)
         if out.cate.isValid:
             # self.savedOut.append(markedCard)
-            #TODO
+            # TODO
             pass
+
+    def afterPlay(self, info):
+        super().afterPlay(info)
+        time.sleep(random.random() * 3)
+
 
 import random
 

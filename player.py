@@ -44,7 +44,7 @@ class Player(Level):
             self.numCards[num].append(c)
 
         for n in self.allNums:
-            self.numCards[num].sort()
+            self.numCards[n].sort()
 
     def action(self, desk_outs: list[OutCard]):
         select_cards = self.play(desk_outs)

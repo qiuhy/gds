@@ -1,5 +1,6 @@
 import sys
 import os
+
 sys.path.append(os.getcwd())
 
 import random
@@ -221,7 +222,7 @@ class Table:
 
             curPlayer = self.players[firstPlayer]
             logger.debug(f"[{self.sitName[firstPlayer]}] {curPlayer.name} {strFirts}")
-            
+
             passed = 0
             nextPlayer = firstPlayer
             while passed < len(self.players) - 1 and not self.is_level_over():
@@ -350,8 +351,8 @@ class Table:
 
 def main():
     t = Table()
-    t.join_player(looker.JPX(""))
-    t.join_player(player.Player("东邪"))
+    t.join_player(player.Player("南帝"))
+    t.join_player(looker.JPX(""))  # t.join_player(player.Player("东邪"))
     t.join_player(player.Player("北丐"))
     t.join_player(player.Player("西毒"))
 
