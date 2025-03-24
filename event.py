@@ -8,6 +8,7 @@ class Game_Event_Cate(Enum):
     GE_Back = "还牌"   # (giver, Puke, backer, Puke)
     GE_Anti = "抗供"   # [Antier]
     GE_Start = "开始"  # firster
-    GE_Play = "出牌"   # outCard
+    GE_Wind = "接风"   # winder
+    GE_Play = "出牌"   # (outCard ,restCards)
     GE_Over = "结束"   # winner[]
     GE_End = "游戏结束" # winner[] 2

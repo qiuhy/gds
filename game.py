@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.getcwd())
+
 import random
 from puke import Puke, Card
 from out import OutCard
@@ -34,6 +38,7 @@ class Team:
 
 def get_teammate(s):
     return (s + 2) % 4
+
 
 class Table:
 
@@ -210,9 +215,13 @@ class Table:
             if firstPlayer in self.winner:
                 firstPlayer = get_teammate(firstPlayer)
                 strFirts = "接风"
+                self.broadcast(Game_Event_Cate.GE_Wind, firstPlayer)
+            else:
+                self.broadcast(Game_Event_Cate.GE_Start, firstPlayer)
+
             curPlayer = self.players[firstPlayer]
             logger.debug(f"[{self.sitName[firstPlayer]}] {curPlayer.name} {strFirts}")
-            self.broadcast(Game_Event_Cate.GE_Start, firstPlayer)
+            
             passed = 0
             nextPlayer = firstPlayer
             while passed < len(self.players) - 1 and not self.is_level_over():
@@ -221,9 +230,8 @@ class Table:
                 else:
                     curPlayer = self.players[nextPlayer]
                     out = curPlayer.action(self.ondesk_cards)
-                    self.broadcast(Game_Event_Cate.GE_Play, out)
+                    self.broadcast(Game_Event_Cate.GE_Play, (out, curPlayer.cardCount))
                     outCount += 1
-
                     tip = str(curPlayer)
                     if out.cate.isValid:
                         val = out
@@ -238,7 +246,6 @@ class Table:
                     if out.cate.isValid:
                         if curPlayer.cardCount == 0:
                             self.winner.append(nextPlayer)
-                
                         firstPlayer = nextPlayer
                         passed = 0
                     else:
@@ -343,7 +350,7 @@ class Table:
 
 def main():
     t = Table()
-    t.join_player(looker.Looker("南帝"))
+    t.join_player(looker.JPX(""))
     t.join_player(player.Player("东邪"))
     t.join_player(player.Player("北丐"))
     t.join_player(player.Player("西毒"))
