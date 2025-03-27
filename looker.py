@@ -149,6 +149,8 @@ class Looker(Player):
     def onEvent(self, e, info):
         if e == Game_Event_Cate.GE_Ready:
             self.afterReady(info)
+        elif e == Game_Event_Cate.GE_Dealing:
+            self.set_cards(info)
         elif e == Game_Event_Cate.GE_Deal:
             self.afterDeal(info)
         elif e == Game_Event_Cate.GE_Anti:
@@ -378,10 +380,9 @@ class Looker(Player):
 
         if not isinstance(info, tuple):
             return
-        (out, cardCount) = info
-        if not isinstance(out, OutCard):
-            return
-
+        (outer,outcards, cardCount) = info
+        out = OutCard(outcards,self.curLevel,outer)
+        
         self.playerRestCards[out.player] = cardCount
         self.drawPlayer()
 

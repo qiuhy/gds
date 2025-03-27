@@ -14,11 +14,10 @@ class Player(Level):
         self.numCards = [[] for i in range(15)]  # "234567890JQKAgG"
         self.name = name
         self.curLevel = 0
-    
-    @property 
+
+    @property
     def winner_title(self):
         return ["头游", "二游", "三游", "末游"]
-
 
     @property
     def cardCount(self):
@@ -145,14 +144,16 @@ class Player(Level):
 
         return c
 
-    def find_out(self,cate:OutCate):
-        #TODO
+    def find_out(self, cate: OutCate):
+        # TODO
         pass
 
     @abstractmethod
     def onEvent(self, e: Game_Event_Cate, info):
         if e == Game_Event_Cate.GE_Ready:
-            self.playerNames = info
+            if isinstance(info, list):
+                self.playerNames = info
+                self.sit = self.playerNames.index(self.name)
 
     def __str__(self):
         s = f"{self.name}:"

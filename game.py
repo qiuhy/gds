@@ -97,6 +97,10 @@ class Table:
             self.winner = []
             self.ondesk_cards = []
             self.broadcast(Game_Event_Cate.GE_Ready)
+            info = {}
+            for i in range(4):
+                info[self.sitName[i]] = self.players[i].name
+            logger.info(f"Table:start {info}")
             return True
         return False
 
@@ -231,7 +235,10 @@ class Table:
                 else:
                     curPlayer = self.players[nextPlayer]
                     out = curPlayer.action(self.ondesk_cards)
-                    self.broadcast(Game_Event_Cate.GE_Play, (out, curPlayer.cardCount))
+                    self.broadcast(
+                        Game_Event_Cate.GE_Play,
+                        (nextPlayer, out.cardValues, curPlayer.cardCount),
+                    )
                     outCount += 1
                     tip = str(curPlayer)
                     if out.cate.isValid:
@@ -280,7 +287,7 @@ class Table:
                 is_over = True
             elif self.curTeam.levelCount == 3:  # 3把没过A
                 self.curTeam.level = 0
-                logger.info(f"{self.curTeam.name}3把A没过, 回到2")
+                logger.debug(f"{self.curTeam.name}3把A没过, 回到2")
 
         self._curTeam = self.winner[0] % 2
         self.firstPlayer = self.winner[-1]
@@ -288,7 +295,7 @@ class Table:
         if not is_over:
             self.curTeam.level = min(12, self.curTeam.level + winscore)
 
-        logger.info(
+        logger.debug(
             "第{}局结束: {}  {} 赢 {}分 \n".format(
                 self.gameCount,
                 [self.players[i].name for i in self.winner],
@@ -301,7 +308,7 @@ class Table:
 
     def run(self):
         while not self.is_game_over():
-            logger.info(
+            logger.debug(
                 "第{}局开始: {} 打 {}\t现在比分 {}:{} - {}:{}".format(
                     self.gameCount + 1,
                     self.curTeam.name,
@@ -349,6 +356,26 @@ class Table:
         return s
 
 
+def new(user: player.Player):
+    t = Table()
+    t.join_player(user)  # t.join_player(player.Player("东邪"))
+    for i in range(3):
+        t.join_player(player.Player(f"电脑({i+1})"))
+    if t.start():
+        t.run()
+        logger.info(
+            "Game Over {} 获胜 {}把过A 打了{}局, 比分 {}:{} - {}:{} \n".format(
+                t.curTeam.name,
+                t.curTeam.levelCount,
+                t.gameCount,
+                t.teams[0].name,
+                t.get_level_name(t.teams[0].level),
+                t.teams[1].name,
+                t.get_level_name(t.teams[1].level),
+            )
+        )
+
+
 def main():
     t = Table()
     t.join_player(player.Player("南帝"))
@@ -358,7 +385,7 @@ def main():
 
     if t.start():
         t.run()
-        logger.info(
+        logger.debug(
             "Game Over {} 获胜 {}把过A 打了{}局, 比分 {}:{} - {}:{} \n".format(
                 t.curTeam.name,
                 t.curTeam.levelCount,
