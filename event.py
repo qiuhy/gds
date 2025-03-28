@@ -2,7 +2,7 @@ from enum import Enum
 import json
 
 
-class Game_Event_Cate(Enum):
+class Game_Event(Enum):
     GE_Name = "报名"  # name
     GE_Join = "加入"  # sit
     GE_Ready = "就绪"  # [playersname] * 4
@@ -25,7 +25,7 @@ class Game_Event_Cate(Enum):
 
 
 class Messgae:
-    def __init__(self, e: Game_Event_Cate, info=None):
+    def __init__(self, e: Game_Event, info=None):
         self.e = e
         self.info = info
         pass
@@ -43,7 +43,7 @@ class Messgae:
         if not "i" in obj.keys():
             return
 
-        for e in Game_Event_Cate:
+        for e in Game_Event:
             if e.name == obj["e"]:
                 break
         else:
@@ -53,11 +53,14 @@ class Messgae:
 
     @staticmethod
     def OK(info=None):
-        return Messgae(Game_Event_Cate.GE_OK, info)
+        return Messgae(Game_Event.GE_OK, info)
 
     @staticmethod
     def Error(info):
-        return Messgae(Game_Event_Cate.GE_Error, info)
+        return Messgae(Game_Event.GE_Error, info)
 
     def __str__(self):
-        return f"{self.e.name}:{self.info}"
+        if self.info:
+            return f"{self.e.name}:{self.info }"
+        else:
+            return f"{self.e.name}"

@@ -9,7 +9,7 @@ from out import OutCard
 import player
 import looker
 import logging
-from event import Game_Event_Cate
+from event import Game_Event
 
 logger = logging.getLogger()
 
@@ -96,11 +96,7 @@ class Table:
             self.gameCount = 0
             self.winner = []
             self.ondesk_cards = []
-            self.broadcast(Game_Event_Cate.GE_Ready)
-            info = {}
-            for i in range(4):
-                info[self.sitName[i]] = self.players[i].name
-            logger.info(f"Table:start {info}")
+            self.broadcast(Game_Event.GE_Ready)
             return True
         return False
 
@@ -126,20 +122,12 @@ class Table:
         for p in self.players:
             p.set_cards(cards[i : i + 27].copy())
             i += 27
-        self.broadcast(Game_Event_Cate.GE_Deal)
+        self.broadcast(Game_Event.GE_Deal)
 
     def back(self, giver, givecard, backer):
         backcard = self.players[backer].back(givecard)
         self.players[giver].get_back(backcard)
-        self.broadcast(Game_Event_Cate.GE_Back, (giver, givecard, backer, backcard))
-        logger.debug(
-            "{} 贡牌 {} 给 {}, 得到还牌 {}".format(
-                self.players[giver].name,
-                Puke[givecard],
-                self.players[backer].name,
-                Puke[backcard],
-            )
-        )
+        self.broadcast(Game_Event.GE_Back, (giver, givecard, backer, backcard))
 
     def anti(self):
         if len(self.winner) < 2:
@@ -157,9 +145,7 @@ class Table:
             if G_count2:
                 antier.append(self.winner[-2])
 
-            antier_name = [self.players[p].name for p in antier]
-            logger.debug(f"{antier_name} 抗贡!!!")
-            self.broadcast(Game_Event_Cate.GE_Anti, antier)
+            self.broadcast(Game_Event.GE_Anti, antier)
             # 抗贡 头游先出
             self.firstPlayer = self.winner[0]
 
@@ -173,10 +159,10 @@ class Table:
         double_give = self.winner[-2] == get_teammate(self.winner[-1])
 
         give_card = [self.players[self.winner[-1]].give()]
-        self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-1], give_card[0]))
+        self.broadcast(Game_Event.GE_Give, (self.winner[-1], give_card[0]))
         if double_give:
             give_card.append(self.players[self.winner[-2]].give())
-            self.broadcast(Game_Event_Cate.GE_Give, (self.winner[-2], give_card[1]))
+            self.broadcast(Game_Event.GE_Give, (self.winner[-2], give_card[1]))
 
         if double_give:
             # 双贡 供牌大的先出 ，一样大 顺时针方向进贡 头游的下家先出
@@ -220,12 +206,11 @@ class Table:
             if firstPlayer in self.winner:
                 firstPlayer = get_teammate(firstPlayer)
                 strFirts = "接风"
-                self.broadcast(Game_Event_Cate.GE_Wind, firstPlayer)
+                self.broadcast(Game_Event.GE_Wind, firstPlayer)
             else:
-                self.broadcast(Game_Event_Cate.GE_Start, firstPlayer)
+                self.broadcast(Game_Event.GE_Start, firstPlayer)
 
             curPlayer = self.players[firstPlayer]
-            logger.debug(f"[{self.sitName[firstPlayer]}] {curPlayer.name} {strFirts}")
 
             passed = 0
             nextPlayer = firstPlayer
@@ -236,20 +221,10 @@ class Table:
                     curPlayer = self.players[nextPlayer]
                     out = curPlayer.action(self.ondesk_cards)
                     self.broadcast(
-                        Game_Event_Cate.GE_Play,
+                        Game_Event.GE_Play,
                         (nextPlayer, out.cardValues, curPlayer.cardCount),
                     )
                     outCount += 1
-                    tip = str(curPlayer)
-                    if out.cate.isValid:
-                        val = out
-                        if curPlayer.cardCount == 0:
-                            tip = curPlayer.winner_title[len(self.winner)]
-                    else:
-                        val = out.cate.value
-                    logger.debug(
-                        f"[{self.sitName[curPlayer.sit]}] {curPlayer.name}:{val}\t{tip}"
-                    )
 
                     if out.cate.isValid:
                         if curPlayer.cardCount == 0:
@@ -287,7 +262,7 @@ class Table:
                 is_over = True
             elif self.curTeam.levelCount == 3:  # 3把没过A
                 self.curTeam.level = 0
-                logger.debug(f"{self.curTeam.name}3把A没过, 回到2")
+                # logger.debug(f"{self.curTeam.name}3把A没过, 回到2")
 
         self._curTeam = self.winner[0] % 2
         self.firstPlayer = self.winner[-1]
@@ -295,53 +270,91 @@ class Table:
         if not is_over:
             self.curTeam.level = min(12, self.curTeam.level + winscore)
 
-        logger.debug(
-            "第{}局结束: {}  {} 赢 {}分 \n".format(
-                self.gameCount,
-                [self.players[i].name for i in self.winner],
-                self.curTeam.name,
-                winscore,
-            )
-        )
-
         return is_over
 
     def run(self):
         while not self.is_game_over():
-            logger.debug(
-                "第{}局开始: {} 打 {}\t现在比分 {}:{} - {}:{}".format(
-                    self.gameCount + 1,
+            self.deal()
+            if self.gameCount:
+                if not self.anti():
+                    self.give_back()
+            self.broadcast(Game_Event.GE_Start)
+            self.play()
+            self.broadcast(Game_Event.GE_Over)
+        self.broadcast(Game_Event.GE_End)
+
+    def broadcast(self, e: Game_Event, info=None):
+        if e == Game_Event.GE_Ready:
+            info = [p.name for p in self.players]
+            logger.info(f"Game Ready [{self.teams[0].name}] VS [{self.teams[1].name}]")            
+        elif e == Game_Event.GE_Deal:
+            info = self.curTeam.name
+        elif e == Game_Event.GE_Start:
+            if info is None:
+                info = self.firstPlayer
+        elif e == Game_Event.GE_Wind:
+            # logger.debug(f"[{self.sitName[firstPlayer]}] {curPlayer.name} {strFirts}")
+            pass
+        elif e == Game_Event.GE_Over:
+            info = self.winner
+            # logger.debug(
+            #     "第{}局结束: {}  {} 赢 {}分 \n".format(
+            #         self.gameCount,
+            #         [self.players[i].name for i in self.winner],
+            #         self.curTeam.name,
+            #         winscore,
+            #     )
+            # )            
+            # logger.debug(
+            #     "第{}局开始: {} 打 {}\t现在比分 {}:{} - {}:{}".format(
+            #         self.gameCount + 1,
+            #         self.curTeam.name,
+            #         self.get_level_name(self.curLevel),
+            #         self.teams[0].name,
+            #         self.get_level_name(self.teams[0].level),
+            #         self.teams[1].name,
+            #         self.get_level_name(self.teams[1].level),
+            #     )
+            # )            
+        elif e == Game_Event.GE_End:
+            info = [p.sit for p in self.curTeam.players]
+            logger.info(
+                "Game End [{}] 获胜 {}把过A 打了{}局, 比分 [{}]:{} - [{}]:{} \n".format(
                     self.curTeam.name,
-                    self.get_level_name(self.curLevel),
+                    self.curTeam.levelCount,
+                    self.gameCount,
                     self.teams[0].name,
                     self.get_level_name(self.teams[0].level),
                     self.teams[1].name,
                     self.get_level_name(self.teams[1].level),
                 )
             )
-
-            self.deal()
-            if self.gameCount:
-                if not self.anti():
-                    self.give_back()
-            logger.debug(str(self))
-            self.broadcast(Game_Event_Cate.GE_Start)
-            self.play()
-            self.broadcast(Game_Event_Cate.GE_Over)
-        self.broadcast(Game_Event_Cate.GE_End)
-
-    def broadcast(self, e: Game_Event_Cate, info=None):
-        if e == Game_Event_Cate.GE_Ready:
-            info = [p.name for p in self.players]
-        elif e == Game_Event_Cate.GE_Deal:
-            info = self.curTeam.name
-        elif e == Game_Event_Cate.GE_Start:
-            if info is None:
-                info = self.firstPlayer
-        elif e == Game_Event_Cate.GE_Over:
-            info = self.winner
-        elif e == Game_Event_Cate.GE_End:
-            info = [p.sit for p in self.curTeam.players]
+        elif e == Game_Event.GE_Back:
+            # logger.debug(
+            #     "{} 贡牌 {} 给 {}, 得到还牌 {}".format(
+            #         self.players[giver].name,
+            #         Puke[givecard],
+            #         self.players[backer].name,
+            #         Puke[backcard],
+            #     )
+            # )
+            pass
+        elif e == Game_Event.GE_Anti:
+            # antier_name = [self.players[p].name for p in antier]
+            # logger.debug(f"{antier_name} 抗贡!!!")
+            pass
+        elif e == Game_Event.GE_Play:
+            # tip = str(curPlayer)
+            # if out.cate.isValid:
+            #     val = out
+            #     if curPlayer.cardCount == 0:
+            #         tip = curPlayer.winner_title[len(self.winner)]
+            # else:
+            #     val = out.cate.value
+            # logger.debug(
+            #     f"[{self.sitName[curPlayer.sit]}] {curPlayer.name}:{val}\t{tip}"
+            # )
+            pass
         elif info is None:
             return
         for p in self.players:
@@ -363,17 +376,6 @@ def new(user: player.Player):
         t.join_player(player.Player(f"电脑({i+1})"))
     if t.start():
         t.run()
-        logger.info(
-            "Game Over {} 获胜 {}把过A 打了{}局, 比分 {}:{} - {}:{} \n".format(
-                t.curTeam.name,
-                t.curTeam.levelCount,
-                t.gameCount,
-                t.teams[0].name,
-                t.get_level_name(t.teams[0].level),
-                t.teams[1].name,
-                t.get_level_name(t.teams[1].level),
-            )
-        )
 
 
 def main():
@@ -385,17 +387,6 @@ def main():
 
     if t.start():
         t.run()
-        logger.debug(
-            "Game Over {} 获胜 {}把过A 打了{}局, 比分 {}:{} - {}:{} \n".format(
-                t.curTeam.name,
-                t.curTeam.levelCount,
-                t.gameCount,
-                t.teams[0].name,
-                t.get_level_name(t.teams[0].level),
-                t.teams[1].name,
-                t.get_level_name(t.teams[1].level),
-            )
-        )
 
 
 if __name__ == "__main__":

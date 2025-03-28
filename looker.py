@@ -5,7 +5,7 @@ sys.path.append(os.getcwd())
 
 import keyboard
 from player import Player
-from event import Game_Event_Cate
+from event import Game_Event
 from enum import Enum
 from out import OutCard
 from puke import *
@@ -147,30 +147,31 @@ class RECT:
 
 class Looker(Player):
     def onEvent(self, e, info):
-        if e == Game_Event_Cate.GE_Ready:
+        super().onEvent(e, info)
+        if e == Game_Event.GE_Ready:
             self.afterReady(info)
-        elif e == Game_Event_Cate.GE_Dealing:
+        elif e == Game_Event.GE_Dealing:
             self.set_cards(info)
-        elif e == Game_Event_Cate.GE_Deal:
+        elif e == Game_Event.GE_Deal:
             self.afterDeal(info)
-        elif e == Game_Event_Cate.GE_Anti:
+        elif e == Game_Event.GE_Anti:
             self.afterAnti(info)
-        elif e == Game_Event_Cate.GE_Give:
+        elif e == Game_Event.GE_Give:
             self.afterGive(info)
-        elif e == Game_Event_Cate.GE_Back:
+        elif e == Game_Event.GE_Back:
             self.afterBack(info)
-        elif e == Game_Event_Cate.GE_Start:
+        elif e == Game_Event.GE_Start:
             self.afterStart(info)
-        elif e == Game_Event_Cate.GE_Wind:
+        elif e == Game_Event.GE_Wind:
             self.afterWind(info)
-        elif e == Game_Event_Cate.GE_Play:
+        elif e == Game_Event.GE_Play:
             self.afterPlay(info)
-        elif e == Game_Event_Cate.GE_Over:
+        elif e == Game_Event.GE_Over:
             self.afterOver(info)
-        elif e == Game_Event_Cate.GE_End:
+        elif e == Game_Event.GE_End:
             self.afterEnd(info)
 
-        return super().onEvent(e, info)
+        CSI.flush()
 
     def onInit(self):
         try:
@@ -180,7 +181,6 @@ class Looker(Player):
             self.height = 25
         self.width = min(100, self.width)
         self.outArea = RECT(11, 4, self.width - 11, self.height - 10)
-        self.playerNames = []
         self.playerRestCards = [27, 27, 27, 27]
         self.winner = []
         self.curTeamName = ""
@@ -194,7 +194,7 @@ class Looker(Player):
         def onEsc():
             self.lookMode = not self.lookMode
 
-        keyboard.add_hotkey("esc", onEsc)
+        keyboard.add_hotkey("f12", onEsc)
 
     def onQuit(self):
         keyboard.unhook_all()
@@ -327,7 +327,6 @@ class Looker(Player):
 
     def afterReady(self, info):
         self.onInit()
-        pass
 
     def afterDeal(self, info):
         self.curTeamName = info
@@ -341,14 +340,20 @@ class Looker(Player):
         pass
 
     def afterGive(self, info):
-        (giver, givecard) = info
+        giver = info[0]
+        givecard= info[1]
+        # (giver, givecard) = info
         self.drawInfo(f"{self.playerNames[giver]} 贡牌 {Puke[givecard]} ")
         if self.lookMode:
             keyboard.wait("enter")
         pass
 
     def afterBack(self, info):
-        (giver, givecard, backer, backcard) = info
+        giver = info[0]
+        givecard= info[1]
+        backer = info[2]
+        backcard= info[3]
+        # (giver, givecard, backer, backcard) = info
         stip = "{} 贡牌 {} 给 {}, 得到还牌 {}".format(
             self.playerNames[giver],
             Puke[givecard],
@@ -377,12 +382,14 @@ class Looker(Player):
         pass
 
     def afterPlay(self, info):
-
-        if not isinstance(info, tuple):
+        if len(info) != 3:
             return
-        (outer,outcards, cardCount) = info
-        out = OutCard(outcards,self.curLevel,outer)
-        
+        outer = info[0]
+        outcards = info[1]
+        cardCount = info[2]
+        # (outer, outcards, cardCount) = info
+        out = OutCard(outcards, self.curLevel, outer)
+
         self.playerRestCards[out.player] = cardCount
         self.drawPlayer()
 
@@ -432,11 +439,11 @@ class JPX(Looker):
         super().onInit()
         self.lookMode = False
         keyboard.unhook_all()
-        keyboard.hook(self.onKey, True)
+        self._playMode = False
         self.giveMode = False
         self.backMode = False
-        self._playMode = False
         self.lastOut = None
+        keyboard.hook(self.onKey, True)
 
     @property
     def playMode(self):
@@ -499,9 +506,6 @@ class JPX(Looker):
         out = OutCard(cards, self.curLevel, self.sit)
         if out.cate.isValid:
             self.markedPos.clear()
-            # self.drawAllCard()
-        else:
-            self.drawInfo(out)
         return cards
 
     def getCurCard(self):
@@ -574,6 +578,8 @@ class JPX(Looker):
             elif e.event_type == "up" and e.name == "z":
                 if len(self.markedPos):
                     self.onSaveCard()
+
+        CSI.flush()
         return False
 
     def checkGiveCard(self):

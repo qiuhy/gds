@@ -19,45 +19,37 @@ class GDC(player.Player):
         self.closed = False
         self.name = self.address[0]
         self.socket.settimeout(30)
-
         logger.info(f"GDC: {self.address} connected")
 
-        if self.sendMessage_recvOK(Messgae(Game_Event_Cate.GE_Name)):
-            # self.socket.setblocking(True)
-            threading.Thread(target=self.process).start()
+        if self.getReply(Messgae(Game_Event.GE_Name)):
+            logger.info(f"GDC: {self.address} Name {self.name}")
         else:
             logger.warning(f"GDC: {self.address} check FAIL!")
             self.close()
 
-    def process(self):
-        while not self.closed:
-            msg = self.recvMessage_sendOK()
-            self.onMessage(msg)
-
     def onMessage(self, msg: Messgae):
-        if msg is None:
-            return
-        if msg.e == Game_Event_Cate.GE_Name:
-            self.name = msg.info
-            threading.Thread(target=game.new, args=(self,)).start()
-        elif msg.e == Game_Event_Cate.GE_Quit:
-            logger.info(f"GDC: {self.address} quit")
-            self.close()
+        if not msg is None:
+            if msg.e == Game_Event.GE_Name:
+                self.name = msg.info
+            elif msg.e == Game_Event.GE_Quit:
+                logger.info(f"GDC: {self.address} quit")
+                self.close()
 
     def onEvent(self, e, info):
         super().onEvent(e, info)
-        self.sendMessage(Messgae(e, info))
+        msg = self.getReply(Messgae(e, info))
 
     def play(self, desk_outs):
-        # if self.closed:
-        return super().play(desk_outs)
-        # else:
-        #     info = desk_outs[-1] if len(desk_outs) else None
-        #     msg = Messgae(Game_Event_Cate.GE_Playing,info)
-        #     if self.sendMessage_recvOK(msg):
-        #         out = self.recvMessage_sendOK()
-        #         if out.e == Game_Event_Cate.GE_Playing:
-        #             return out.info
+        if len(desk_outs):
+            lastout = desk_outs[-1].cardValues
+        else:
+            lastout = None
+        msg = self.getReply(Messgae(Game_Event.GE_Playing, lastout))
+        if msg:
+            return msg.info
+        else:
+            return []
+        # return super().play(desk_outs)
 
     def give(self):
         return super().give()
@@ -77,12 +69,9 @@ class GDC(player.Player):
                 return
 
             msg = Messgae.fromJson(data)
-            if msg:
-                logger.debug(f"GDC: {self.address} 收到消息 {msg}")
-                return msg
-            else:
+            if not msg:
                 logger.warning(f"GDC: {self.address} 无效消息 {data}")
-                return
+            return msg
         except socket.timeout:
             pass
         except Exception as e:
@@ -90,35 +79,26 @@ class GDC(player.Player):
             self.close()
         return
 
-    def recvMessage_sendOK(self):
-        msg = self.recvMessage()
-        if msg:
-            if not (msg.e == Game_Event_Cate.GE_OK and msg.info is None):
-                self.sendMessage(Messgae.OK())
-            return msg
-
     def sendMessage(self, msg: Messgae):
         if self.closed:
             return False
         try:
             msgJson = msg.toJson()
             self.socket.sendall(bytes(msgJson, "utf-8"))
-            logger.debug(f"GDC: {self.address} 发出消息 {msg}")
             return True
         except Exception as e:
             logger.error(f"GDC: {self.address} {str(e)} send {msg}")
             return False
 
-    def sendMessage_recvOK(self, msg):
-        if not self.sendMessage(msg):
-            return False
-        msg = self.recvMessage()
-        if not msg:
-            return False
-        elif msg.e != Game_Event_Cate.GE_OK:
-            return False
-
-        return True
+    def getReply(self, msg: Messgae):
+        if self.sendMessage(msg):
+            rep = self.recvMessage()
+            if rep:
+                logger.debug(f"GDC: {self.address} 发送消息 {msg} 回复 {rep}")
+                self.onMessage(rep)
+                return rep
+            else:
+                logger.info(f"GDC: {self.address} 发送消息 {msg} 回复 {rep}")
 
     def close(self):
         if not self.closed:
@@ -128,8 +108,7 @@ class GDC(player.Player):
 
     def set_cards(self, cards):
         super().set_cards(cards)
-        msg = Messgae(Game_Event_Cate.GE_Dealing, cards)
-        self.sendMessage(msg)
+        self.getReply(Messgae(Game_Event.GE_Dealing, cards))
 
 
 class GDS:
@@ -153,11 +132,11 @@ class GDS:
                     gdc.close()
                 gdc = GDC(socket, addr)
                 self.clients[ip] = gdc
+                threading.Thread(target=game.new, args=(gdc,), daemon=True).start()
             except OSError:
                 break
             except Exception as e:
                 logger.error(f"GDS:accept {str(e)}")
-                
 
     def check(self):
         def is_connected(c: GDC):
@@ -177,12 +156,6 @@ class GDS:
                 c.close()
                 self.clients.pop(ip)
         time.sleep(60)
-
-    @property
-    def freeUser(self):
-        for ip, user in self.clients.items():
-            if user in self.onTableUser:
-                yield user
 
     def close(self):
         for c in self.clients.values():

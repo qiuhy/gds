@@ -14,6 +14,7 @@ class Player(Level):
         self.numCards = [[] for i in range(15)]  # "234567890JQKAgG"
         self.name = name
         self.curLevel = 0
+        self.playerNames = []
 
     @property
     def winner_title(self):
@@ -49,13 +50,15 @@ class Player(Level):
         select_cards = self.play(desk_outs)
         out = OutCard(select_cards, self.curLevel, self.sit)
 
-        if len(desk_outs):
-            if desk_outs[-1] >= out:
+        if len(desk_outs) and out.cate.isValid:
+            if out <= desk_outs[-1]:
                 return OutCard([], self.curLevel, self.sit)
+
+        if not out.cate.isValid:
+            return out
 
         desk_outs.append(out)
         self.removeCards(select_cards)
-
         return out
 
     @abstractmethod
@@ -149,8 +152,8 @@ class Player(Level):
         pass
 
     @abstractmethod
-    def onEvent(self, e: Game_Event_Cate, info):
-        if e == Game_Event_Cate.GE_Ready:
+    def onEvent(self, e: Game_Event, info):
+        if e == Game_Event.GE_Ready:
             if isinstance(info, list):
                 self.playerNames = info
                 self.sit = self.playerNames.index(self.name)

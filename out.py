@@ -42,7 +42,7 @@ class OutCard(Level):
         self.num_count = {}
         self.player = player
         self.cards = [Puke[c] for c in sorted(cards, reverse=True)]
-        
+
         self.curLevel = level
         for c in self.cards:
             isred = False
@@ -75,7 +75,7 @@ class OutCard(Level):
     @property
     def cardValues(self):
         return [c.val for c in self.cards]
-    
+
     @property
     def redCount(self):
         return len(self.red_cards)
@@ -381,12 +381,17 @@ class OutCard(Level):
         if not isinstance(p, OutCard):
             raise TypeError()
 
-        if not (self.cate.isValid and p.cate.isValid):
+        if not self.cate.isValid:
+            return True
+        elif not p.cate.isValid:
             return False
 
         if self.cate.isZhaDan:
             if self.cate == p.cate:
-                return self.numOrder.index(self.val) < p.numOrder.index(p.val)
+                if self.cate == OutCate.ZhaDan5THS:
+                    return self.val < p.val
+                else:
+                    return self.numOrder.index(self.val) < p.numOrder.index(p.val)
             elif p.cate.isZhaDan:
                 return self.cate.name < p.cate.name
             else:

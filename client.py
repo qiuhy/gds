@@ -1,19 +1,17 @@
-import looker
 import socket
 import threading
-from event import *
 import logging
+from event import *
+from looker import *
 
 logger = logging.getLogger()
 
-
-class client(looker.Looker):
+class client(JPX):
     def __init__(self, name=""):
         if name == "":
-            name = "网络观察员"
+            name = "网络键盘侠"
         super().__init__(name)
         self.socket = socket.socket()
-        self.socket.settimeout(30)
         self.closed = True
 
     def connect(self, hostaddr):
@@ -22,6 +20,7 @@ class client(looker.Looker):
             self.socket.connect(hostaddr)
             self.hostaddr = self.socket.getpeername()
             self.closed = False
+            logger.debug(f"connect to {self.hostaddr}")
             threading.Thread(target=self.process).start()
             return True
         except Exception as e:
@@ -30,24 +29,36 @@ class client(looker.Looker):
 
     def close(self):
         if not self.closed:
-            self.sendMessage(Messgae(Game_Event_Cate.GE_Quit, None))
             self.closed = True
+            self.onQuit()
             self.socket.close()
+            logger.debug(f"colse from {self.hostaddr}")
 
     def process(self):
         while not self.closed:
-            msg = self.recvMessage_sendOK()
-            self.onMessage(msg)
+            msg = self.recvMessage()
+            logger.debug(f"recv {msg} ")
+            rep = self.getReply(msg)
+            logger.debug(f"send {rep}")
+            # logger.debug(f"{msg} --> {rep}")
+            self.sendMessage(rep)
 
-    def onMessage(self, msg: Messgae):
+    def play(self, desk_outs):
+        return super().play(desk_outs)
+
+    def getReply(self, msg: Messgae):
         if msg is None:
             return
-        if msg.e == Game_Event_Cate.GE_OK:
-            logger.info(f"获得消息:{msg}")
-        elif msg.e == Game_Event_Cate.GE_Name:
-            self.sendMessage(Messgae(Game_Event_Cate.GE_Name, self.name))
-        else:
-            self.onEvent(msg.e, msg.info)
+        elif msg.e == Game_Event.GE_Quit:
+            logger.warning("server quit")
+            self.close()
+        elif msg.e == Game_Event.GE_Name: 
+            return Messgae(Game_Event.GE_Name, self.name) 
+        elif msg.e == Game_Event.GE_Playing:
+            return self.play([msg.info])
+
+        self.onEvent(msg.e, msg.info)
+        return Messgae.OK()
 
     def recvMessage(self):
         if self.closed:
@@ -56,55 +67,36 @@ class client(looker.Looker):
             data = None
             data = str(self.socket.recv(1024), "utf-8")
             if not data:
-                logger.info(f"{self.hostaddr}: no data")
+                logger.warning(f"no data")
                 self.close()
                 return
 
             msg = Messgae.fromJson(data)
-            if msg:
-                logger.debug(f"{self.hostaddr}: 收到消息 {msg}")
-                return msg
-            else:
-                logger.warning(f"{self.hostaddr}: 无效消息 {data}")
-                return
-        except socket.timeout:
-            pass
-        except Exception as e:
-            logger.error(f"{self.hostaddr}: {str(e)} recv {data}")
-        return
-
-    def recvMessage_sendOK(self):
-        msg = self.recvMessage()
-        if msg:
-            if not (msg.e == Game_Event_Cate.GE_OK and msg.info is None):
-                self.sendMessage(Messgae.OK())
+            if not msg:
+                logger.warning(f"无效消息 {data}")
             return msg
+        except Exception as e:
+            logger.error(f"{str(e)} recv {data}")
+            self.close()
+        return
 
     def sendMessage(self, msg: Messgae):
         if self.closed:
             return False
+        if msg is None:
+            return False
         try:
             msgJson = msg.toJson()
             self.socket.sendall(bytes(msgJson, "utf-8"))
-            logger.debug(f"{self.hostaddr}: 发出消息 {msg}")
             return True
         except Exception as e:
-            logger.error(f"{self.hostaddr}: {str(e)} send {msg}")
+            logger.error(f"{str(e)} send {msg}")
             return False
 
-    def sendMessage_recvOK(self, msg: Messgae):
-        if not self.sendMessage(msg):
-            return False
-        if msg.e == Game_Event_Cate.GE_OK and msg.info is None:
-            return True
-        msg = self.recvMessage()
-        if not msg:
-            return False
-        elif msg.e != Game_Event_Cate.GE_OK:
-            return False
-
-        return True
-
+    def onKey(self, e):
+        if e.event_type == "up" and e.name == "e":
+            self.close()
+        return super().onKey(e)
 
 def main():
     c = client()
@@ -116,5 +108,14 @@ def main():
 
 
 if __name__ == "__main__":
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s : %(message)s")
+    logfilename = f"{os.getcwd()}/log/gds-client.log"
+    handler = logging.FileHandler(logfilename, encoding="utf-8")
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
     main()
     pass
