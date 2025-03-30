@@ -3,7 +3,7 @@ import os
 
 sys.path.append(os.getcwd())
 
-import keyboard
+import win_key as keyboard
 from player import Player
 from event import Game_Event
 from enum import Enum
@@ -191,13 +191,13 @@ class Looker(Player):
 
         CSI.initScreen()
 
-        def onEsc():
+        def onEsc(key):
             self.lookMode = not self.lookMode
 
         keyboard.add_hotkey("f12", onEsc)
 
     def onQuit(self):
-        keyboard.unhook_all()
+        keyboard.clear()
         CSI.quit()
 
     def onDraw(self):
@@ -341,7 +341,7 @@ class Looker(Player):
 
     def afterGive(self, info):
         giver = info[0]
-        givecard= info[1]
+        givecard = info[1]
         # (giver, givecard) = info
         self.drawInfo(f"{self.playerNames[giver]} 贡牌 {Puke[givecard]} ")
         if self.lookMode:
@@ -350,9 +350,9 @@ class Looker(Player):
 
     def afterBack(self, info):
         giver = info[0]
-        givecard= info[1]
+        givecard = info[1]
         backer = info[2]
-        backcard= info[3]
+        backcard = info[3]
         # (giver, givecard, backer, backcard) = info
         stip = "{} 贡牌 {} 给 {}, 得到还牌 {}".format(
             self.playerNames[giver],
@@ -438,12 +438,12 @@ class JPX(Looker):
     def onInit(self):
         super().onInit()
         self.lookMode = False
-        keyboard.unhook_all()
         self._playMode = False
         self.giveMode = False
         self.backMode = False
         self.lastOut = None
-        keyboard.hook(self.onKey, True)
+        keyboard.clear()
+        keyboard.add_listen(self.onKey)
 
     @property
     def playMode(self):
@@ -526,56 +526,56 @@ class JPX(Looker):
                     cards.append(c)
         return cards
 
-    def onKey(self, e: keyboard.KeyboardEvent):
+    def onKey(self, key):
         if self.playMode:
-            if e.event_type == "up" and e.name == "q":
+            if key == "q":
                 self.markedPos.clear()
                 self.playMode = False
-            elif e.event_type == "up" and e.name == "enter":
+            elif key == "enter":
                 if len(self.markedPos):
                     if self.checkPlayCards():
                         self.playMode = False
         elif self.giveMode:
-            if e.event_type == "up" and e.name == "enter":
+            if key == "enter":
                 if self.checkGiveCard():
                     self.giveMode = False
         elif self.backMode:
-            if e.event_type == "up" and e.name == "enter":
+            if key == "enter":
                 if self.checkBackCard():
                     self.backMode = False
 
         if self.cardCount:
-            if e.event_type == "down" and e.name == "esc":
+            if key == "esc":
                 self.markedPos.clear()
                 self.drawAllCard()
-            elif e.event_type == "down" and e.name in ["left", "right", "up", "down"]:
+            elif key in ["up", "down", "left", "right"]:
                 prvX = self.curX
                 prvY = self.curY
-                if e.name == "left":
+                if key == "left":
                     self.curX = (self.curX - 1) % self.numCount
-                elif e.name == "right":
+                elif key == "right":
                     self.curX = (self.curX + 1) % self.numCount
 
                 for x, num in enumerate(self.allNums):
                     if x == self.curX:
                         break
-                if e.name == "up":
+                if key == "up":
                     self.curY = (self.curY + 1) % len(self.numCards[num])
-                elif e.name == "down":
+                elif key == "down":
                     self.curY = (self.curY - 1) % len(self.numCards[num])
 
                 if self.curY >= len(self.numCards[num]):
                     self.curY = len(self.numCards[num]) - 1
 
                 self.drawAllCard([(prvX, prvY), (self.curX, self.curY)])
-            elif e.event_type == "down" and e.name == "space":
+            elif key == "space":
                 curPos = (self.curX, self.curY)
                 if curPos in self.markedPos:
                     self.markedPos.remove(curPos)
                 else:
                     self.markedPos.append(curPos)
                 self.drawAllCard([curPos])
-            elif e.event_type == "up" and e.name == "z":
+            elif key == "z":
                 if len(self.markedPos):
                     self.onSaveCard()
 

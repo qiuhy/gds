@@ -134,6 +134,7 @@ class GDS:
                 self.clients[ip] = gdc
                 threading.Thread(target=game.new, args=(gdc,), daemon=True).start()
             except OSError:
+                logger.error(f"GDS:accept {str(e)}")
                 break
             except Exception as e:
                 logger.error(f"GDS:accept {str(e)}")
