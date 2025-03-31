@@ -145,6 +145,16 @@ class RECT:
         return self.top + self.height // 2
 
 
+cate_color = [
+    CSI_Color.Green,
+    CSI_Color.Yellow,
+    CSI_Color.Purple,
+    CSI_Color.Blue,
+    CSI_Color.Cyan,
+    CSI_Color.Cyan,
+]
+
+
 class Looker(Player):
     def onEvent(self, e, info):
         super().onEvent(e, info)
@@ -180,7 +190,7 @@ class Looker(Player):
             self.width = 80
             self.height = 25
         self.width = min(100, self.width)
-        self.outArea = RECT(11, 4, self.width - 11, self.height - 10)
+        self.outArea = RECT(11, 5, self.width - 11, self.height - 10)
         self.playerRestCards = [27, 27, 27, 27]
         self.winner = []
         self.curTeamName = ""
@@ -189,6 +199,7 @@ class Looker(Player):
         self.markedPos = []
         self.curX = self.curY = -1
 
+        self.giveInfo = []
         CSI.initScreen()
 
         def onEsc(key):
@@ -206,14 +217,14 @@ class Looker(Player):
         self.drawPlayer()
         self.drawAllCard()
 
-    def drawHead(self, info=None):
+    def drawHead(self):
         CSI.reset_textStyle()
         CSI.move_cursor(1, 1)
         stip = f"\t当前 {self.curTeamName} 打 {Card.get_num_str(self.curLevel)}"
         CSI.print(f"{stip:{self.width}}")
-        if not info is None:
-            CSI.move_cursor(1, 2)
-            CSI.print(f"{info:{self.width}}")
+        for i, info in enumerate(self.giveInfo):
+            CSI.move_cursor(1, 2 + i)
+            CSI.print(f"{info:{20}}")
 
     def drawAllCard(self, pos=[]):
         CSI.reset_textStyle()
@@ -234,15 +245,6 @@ class Looker(Player):
         CSI.move_cursor(card_beg + x * 3, self.height - y)
         marked = (x, y) in self.markedPos
         selected = x == self.curX and y == self.curY
-
-        cate_color = [
-            CSI_Color.Blue,
-            CSI_Color.Green,
-            CSI_Color.Yellow,
-            CSI_Color.Purple,
-            CSI_Color.Cyan,
-            CSI_Color.Cyan,
-        ]
 
         if c == self.redCard:
             color = CSI_Color.Red
@@ -265,6 +267,10 @@ class Looker(Player):
         CSI.set_select_color()
         CSI.print(f"{str(info):<{self.width}}")
         CSI.reset_textStyle()
+
+    def clearOut(self):
+        for i in range(4):
+            self.drawOut_str(i, "")
 
     def drawOut_str(self, player, outstr):
         a = self.outArea
@@ -329,14 +335,17 @@ class Looker(Player):
         self.onInit()
 
     def afterDeal(self, info):
-        self.curTeamName = info
+        self.curTeamName = info[0]
+        self.curLevel = info[1]
+        self.giveInfo.clear()
         self.onDraw()
         pass
 
     def afterAnti(self, info):
-        self.drawInfo(f"{[self.playerNames[p] for p in info]} 抗贡!!!")
-        if self.lookMode:
-            keyboard.wait("enter")
+        stip = f"{[self.playerNames[p] for p in info]} 抗贡!!!"
+        self.giveInfo.append(stip)
+        self.drawHead()
+        self.drawInfo(stip)
         pass
 
     def afterGive(self, info):
@@ -344,8 +353,6 @@ class Looker(Player):
         givecard = info[1]
         # (giver, givecard) = info
         self.drawInfo(f"{self.playerNames[giver]} 贡牌 {Puke[givecard]} ")
-        if self.lookMode:
-            keyboard.wait("enter")
         pass
 
     def afterBack(self, info):
@@ -360,21 +367,20 @@ class Looker(Player):
             self.playerNames[backer],
             Puke[backcard],
         )
+
+        self.giveInfo.append(stip)
+        self.drawHead()
         self.drawInfo(stip)
-        if self.lookMode:
-            keyboard.wait("enter")
         pass
 
     def afterStart(self, info):
-        self.onDraw()
+        self.clearOut()
         self.drawInfo(f"{self.playerNames[info]} 先出")
         self.drawOutTip(info)
-        if self.lookMode:
-            keyboard.wait("enter")
         pass
 
     def afterWind(self, info):
-        self.onDraw()
+        self.clearOut()
         self.drawInfo(f"{self.playerNames[info]} 接风")
         self.drawOutTip(info)
         if self.lookMode:
@@ -393,7 +399,7 @@ class Looker(Player):
         self.playerRestCards[out.player] = cardCount
         self.drawPlayer()
 
-        if out.player == self.sit:
+        if out.player == self.sit and out.cate.isValid:
             self.drawAllCard()
 
         self.drawOut(out)
@@ -475,10 +481,10 @@ class JPX(Looker):
         while self.giveMode:
             CSI.flush()
 
-        c = self.getCurCard()
-        self.removeCards([c])
-        self.onDraw()
-        return c
+        givecard = self.getCurCard()
+        self.removeCards([givecard])
+        self.drawAllCard()
+        return givecard
 
     def back(self, c):
         # 得到贡牌，再还牌
@@ -492,13 +498,12 @@ class JPX(Looker):
         self.removeCards([backcard])
         num = Card.get_val_num(c)
         self.numCards[num].append(c)
-        self.onDraw()
+        self.drawAllCard()
         return backcard
 
     def play(self, desk_outs):
         self.playMode = True
         self.lastOut = desk_outs[-1] if len(desk_outs) else None
-        # self.drawOut_str(self.sit, "")
         while self.playMode:
             CSI.flush()
 
@@ -529,8 +534,9 @@ class JPX(Looker):
     def onKey(self, key):
         if self.playMode:
             if key == "q":
-                self.markedPos.clear()
-                self.playMode = False
+                if not self.lastOut is None:
+                    self.markedPos.clear()
+                    self.playMode = False
             elif key == "enter":
                 if len(self.markedPos):
                     if self.checkPlayCards():
@@ -547,7 +553,7 @@ class JPX(Looker):
         if self.cardCount:
             if key == "esc":
                 self.markedPos.clear()
-                self.drawAllCard()
+                self.onDraw()
             elif key in ["up", "down", "left", "right"]:
                 prvX = self.curX
                 prvY = self.curY
@@ -604,7 +610,7 @@ class JPX(Looker):
         if self.playMode:
             if self.lastOut is None:
                 return out.cate.isValid
-            elif self.lastOut >= out:
+            elif out <= self.lastOut:
                 return False
             else:
                 return True
@@ -619,10 +625,6 @@ class JPX(Looker):
             # TODO
             pass
 
-    def afterPlay(self, info):
-        super().afterPlay(info)
-        time.sleep(random.random() * 3)
-
 
 import random
 
@@ -634,8 +636,11 @@ if __name__ == "__main__":
     player.set_cards(cards[0:27].copy())
     player.onInit()
     player.onDraw()
-    player.drawInfo("[Q]退出 [Enter]出牌")
+    player.drawInfo("[Enter]出牌")
     player.playMode = True
     while player.playMode:
         CSI.flush()
+    cards = player.getMarkedCards()
+    out = OutCard(cards, player.curLevel)
     player.onQuit()
+    print(out)

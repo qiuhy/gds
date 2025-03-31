@@ -7,10 +7,9 @@ import random
 from puke import Puke, Card
 from out import OutCard
 import player
-import looker
 import logging
 from event import Game_Event
-
+import time
 logger = logging.getLogger()
 
 
@@ -115,7 +114,7 @@ class Table:
 
     def deal(self):
         for p in self.players:
-            p.curLevel = self.curLevel
+            p.curLevel = self.curTeam.level
         cards = [i % 54 for i in range(2 * 54)]
         random.shuffle(cards)
         i = 0
@@ -126,7 +125,7 @@ class Table:
 
     def back(self, giver, givecard, backer):
         backcard = self.players[backer].back(givecard)
-        self.players[giver].get_back(backcard)
+        self.players[giver].get_card(backcard)
         self.broadcast(Game_Event.GE_Back, (giver, givecard, backer, backcard))
 
     def anti(self):
@@ -269,16 +268,15 @@ class Table:
 
         if not is_over:
             self.curTeam.level = min(12, self.curTeam.level + winscore)
+            
 
         return is_over
 
     def run(self):
         while not self.is_game_over():
             self.deal()
-            if self.gameCount:
-                if not self.anti():
-                    self.give_back()
-            self.broadcast(Game_Event.GE_Start)
+            if not self.anti():
+                self.give_back()
             self.play()
             self.broadcast(Game_Event.GE_Over)
         self.broadcast(Game_Event.GE_End)
@@ -286,9 +284,9 @@ class Table:
     def broadcast(self, e: Game_Event, info=None):
         if e == Game_Event.GE_Ready:
             info = [p.name for p in self.players]
-            logger.info(f"Game Ready [{self.teams[0].name}] VS [{self.teams[1].name}]")            
+            logger.info(f"Game Ready [{self.teams[0].name}] VS [{self.teams[1].name}]")
         elif e == Game_Event.GE_Deal:
-            info = self.curTeam.name
+            info = [self.curTeam.name, self.curLevel]
         elif e == Game_Event.GE_Start:
             if info is None:
                 info = self.firstPlayer
@@ -304,7 +302,7 @@ class Table:
             #         self.curTeam.name,
             #         winscore,
             #     )
-            # )            
+            # )
             # logger.debug(
             #     "第{}局开始: {} 打 {}\t现在比分 {}:{} - {}:{}".format(
             #         self.gameCount + 1,
@@ -315,7 +313,7 @@ class Table:
             #         self.teams[1].name,
             #         self.get_level_name(self.teams[1].level),
             #     )
-            # )            
+            # )
         elif e == Game_Event.GE_End:
             info = [p.sit for p in self.curTeam.players]
             logger.info(
@@ -359,7 +357,7 @@ class Table:
             return
         for p in self.players:
             p.onEvent(e, info)
-
+        time.sleep(1)
     def __str__(self):
         if len(self.teams) == 0:
             return "未组队,或玩家人数不足"
@@ -381,7 +379,7 @@ def new(user: player.Player):
 def main():
     t = Table()
     t.join_player(player.Player("南帝"))
-    t.join_player(looker.JPX(""))  # t.join_player(player.Player("东邪"))
+    t.join_player(player.Player("东邪"))
     t.join_player(player.Player("北丐"))
     t.join_player(player.Player("西毒"))
 

@@ -24,7 +24,7 @@ KEY_NAME = {
     "ctrl+t": b"\x14",
     "ctrl+u": b"\x15",
     "ctrl+v": b"\x16",
-    "ctrl+w": b"\x17",
+    # "ctrl+w": b"\x17", as ctrl+back
     "ctrl+x": b"\x18",
     "ctrl+y": b"\x19",
     "ctrl+z": b"\x1a",
@@ -50,6 +50,12 @@ KEY_NAME = {
     "down": b"\x00P",
     "left": b"\x00K",
     "right": b"\x00M",
+    "ins": b"\00R",
+    "del": b"\00S",
+    "home": b"\00G",
+    "end": b"\00O",
+    "pgup": b"\00I",
+    "pgdn": b"\00Q",
     "f12": b"\xe0\x86",
     "f11": b"\xe0\x85",
     "f10": b"\x00D",
@@ -62,12 +68,6 @@ KEY_NAME = {
     "f3": b"\x00:",
     "f2": b"\x00<",
     "f1": b"\x00;",
-    "ins": b"\00R",
-    "del": b"\00S",
-    "home": b"\00G",
-    "end": b"\00O",
-    "pgup": b"\00I",
-    "pgdn": b"\00Q",
 }
 
 
@@ -85,10 +85,17 @@ def ch2key(ch):
     if ch is None:
         return None
     for key, val in KEY_NAME.items():
+        if len(val) != len(ch):
+            continue
+        elif len(ch) == 2:
+            if val[0] == 0xE0 or val[0] == 0:
+                if ch[0] == 0xE0 or ch[0] == 0:
+                    if ch[1] == val[1]:
+                        return key
+        
         if ch == val:
             return key
     else:
-        # return repr(ch)
         return str(ch, "gbk")
 
 
@@ -164,7 +171,7 @@ def wait(key=None):
 
     def _wait():
         wait_event.set()
-        
+
     with _listener._instance_lock:
         _listener.waitting[key] = _wait
     wait_event.wait()
@@ -177,7 +184,7 @@ def main():
         print(f"hotkey {key} pressed")
 
     def onkey(key):
-        print(f"key: {key}")
+        print(f"listened key: {key}")
 
     def onquit(key):
         print("esc pressed quit ...")

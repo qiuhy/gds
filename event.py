@@ -3,19 +3,19 @@ import json
 
 
 class Game_Event(Enum):
-    GE_Name = "报名"  # name
+    GE_Name = "报名"  # retrun GE_Name name
     GE_Join = "加入"  # sit
     GE_Ready = "就绪"  # [playersname] * 4
-    GE_Dealing = "发牌"  # cards: int[27] retrun OK
-    GE_Deal = "发牌结束"  # curTeam.name
-    GE_Giveing = "贡牌"  # return GE_Giveing (giver, Puke)
-    GE_Give = "贡牌结束"  # (giver, Puke)
-    GE_Backing = "还牌"  # return GE_Backing (backer, Puke)
-    GE_Back = "还牌结束"  # (giver, Puke, backer, Puke)
+    GE_Dealing = "发牌"  # cards: int[27] 
+    GE_Deal = "发牌结束"  # (curTeam.name, curTeam.level)
+    GE_Giveing = "贡牌"  # return GE_Giveing givecard
+    GE_Give = "贡牌结束"  # (giver, givecard)
+    GE_Backing = "还牌"  # givecard return GE_Backing backcard
+    GE_Back = "还牌结束"  # (giver, givecard, backer, backcard)
     GE_Anti = "抗供"  # [Antier]
     GE_Start = "开始"  # firster
     GE_Wind = "接风"  # winder
-    GE_Playing = "出牌"  # last_outValues return GE_Playing outValues
+    GE_Playing = "出牌"  # last_out(outer,cards) return GE_Playing outValues
     GE_Play = "出牌结束"  # (outer,cards ,restCards)
     GE_Over = "结束"  # winner[]
     GE_Quit = "退出"  # quiter

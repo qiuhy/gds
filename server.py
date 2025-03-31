@@ -41,7 +41,7 @@ class GDC(player.Player):
 
     def play(self, desk_outs):
         if len(desk_outs):
-            lastout = desk_outs[-1].cardValues
+            lastout = (desk_outs[-1].player, desk_outs[-1].cardValues)
         else:
             lastout = None
         msg = self.getReply(Messgae(Game_Event.GE_Playing, lastout))
@@ -52,31 +52,44 @@ class GDC(player.Player):
         # return super().play(desk_outs)
 
     def give(self):
-        return super().give()
+        msg = self.getReply(Messgae(Game_Event.GE_Giveing, None))
+        givecard=msg.info
+        self.removeCards([givecard])
+        return givecard
+        # return super().give()
 
     def back(self, c):
-        return super().back(c)
+        msg = self.getReply(Messgae(Game_Event.GE_Backing, c))
+        backcard = msg.info
+        self.get_card(c)
+        self.removeCards([backcard])
+        return backcard
+        
 
     def recvMessage(self):
         if self.closed:
             return
-        try:
-            data = None
-            data = str(self.socket.recv(1024), "utf-8")
-            if not data:
-                logger.info(f"GDC: {self.address} no data")
+        retry = 0
+        while retry < 3:
+            try:
+                data = None
+                data = str(self.socket.recv(1024), "utf-8")
+                if not data:
+                    logger.info(f"GDC: {self.address} no data")
+                    self.close()
+                    return
+
+                msg = Messgae.fromJson(data)
+                if not msg:
+                    logger.warning(f"GDC: {self.address} 无效消息 {data}")
+                return msg
+            except socket.timeout:
+                retry += 1
+                logger.warning(f"GDC: {self.address} time out retry {retry}")
+            except Exception as e:
+                logger.error(f"GDC: {self.address} {str(e)} recv {data}")
                 self.close()
                 return
-
-            msg = Messgae.fromJson(data)
-            if not msg:
-                logger.warning(f"GDC: {self.address} 无效消息 {data}")
-            return msg
-        except socket.timeout:
-            pass
-        except Exception as e:
-            logger.error(f"GDC: {self.address} {str(e)} recv {data}")
-            self.close()
         return
 
     def sendMessage(self, msg: Messgae):
@@ -133,7 +146,7 @@ class GDS:
                 gdc = GDC(socket, addr)
                 self.clients[ip] = gdc
                 threading.Thread(target=game.new, args=(gdc,), daemon=True).start()
-            except OSError:
+            except OSError as e:
                 logger.error(f"GDS:accept {str(e)}")
                 break
             except Exception as e:

@@ -6,6 +6,7 @@ from looker import *
 
 logger = logging.getLogger()
 
+
 class client(JPX):
     def __init__(self, name=""):
         if name == "":
@@ -21,7 +22,7 @@ class client(JPX):
             self.hostaddr = self.socket.getpeername()
             self.closed = False
             logger.debug(f"connect to {self.hostaddr}")
-            threading.Thread(target=self.process).start()
+            threading.Thread(target=self.process, daemon=True).start()
             return True
         except Exception as e:
             logger.error(f"连接失败 {hostaddr},{str(e)}")
@@ -43,8 +44,31 @@ class client(JPX):
             # logger.debug(f"{msg} --> {rep}")
             self.sendMessage(rep)
 
-    def play(self, desk_outs):
+    def play(self, info):
+        if info:
+            outer = info[0]
+            outcards = info[1]
+            out = OutCard(outcards, self.curLevel, outer)
+            desk_outs = [out]
+        else:
+            desk_outs = []
         return super().play(desk_outs)
+
+    def afterPlay(self, info):
+        outer = info[0]
+        outcards = info[1]
+        if outer == self.sit:
+            self.removeCards(outcards)
+        return super().afterPlay(info)
+
+    def afterBack(self, info):
+        giver = info[0]
+        givecard = info[1]
+        backer = info[2]
+        backcard = info[3]
+        if giver == self.sit:
+            self.get_card(backcard)
+        return super().afterBack(info)
 
     def getReply(self, msg: Messgae):
         if msg is None:
@@ -52,10 +76,17 @@ class client(JPX):
         elif msg.e == Game_Event.GE_Quit:
             logger.warning("server quit")
             self.close()
-        elif msg.e == Game_Event.GE_Name: 
-            return Messgae(Game_Event.GE_Name, self.name) 
+        elif msg.e == Game_Event.GE_Name:
+            return Messgae(Game_Event.GE_Name, self.name)
+        elif msg.e == Game_Event.GE_Giveing:
+            card = self.give()
+            return Messgae(Game_Event.GE_Giveing, card)
+        elif msg.e == Game_Event.GE_Backing:
+            card = self.back(msg.info)
+            return Messgae(Game_Event.GE_Backing, card)
         elif msg.e == Game_Event.GE_Playing:
-            return self.play([msg.info])
+            out = self.play(msg.info)
+            return Messgae(Game_Event.GE_Playing, out)
 
         self.onEvent(msg.e, msg.info)
         return Messgae.OK()
@@ -94,9 +125,10 @@ class client(JPX):
             return False
 
     def onKey(self, e):
-        if e.event_type == "up" and e.name == "e":
+        if e == "e":
             self.close()
         return super().onKey(e)
+
 
 def main():
     c = client()

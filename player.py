@@ -74,9 +74,7 @@ class Player(Level):
     @abstractmethod
     def back(self, c):
         # 得到贡牌，再还牌
-        num = Card.get_val_num(c)
-        self.numCards[num].append(c)
-        self.numCards[num].sort()
+        self.get_card(c)
 
         # 优先还最小单张
         for num in self.numOrder:
@@ -90,7 +88,7 @@ class Player(Level):
 
         return None
 
-    def get_back(self, c):
+    def get_card(self, c):
         # 拿到还牌
         num = Card.get_val_num(c)
         self.numCards[num].append(c)

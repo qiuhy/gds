@@ -41,7 +41,8 @@ class OutCard(Level):
         self.other_cards: list[Card] = []
         self.num_count = {}
         self.player = player
-        self.cards = [Puke[c] for c in sorted(cards, reverse=True)]
+        if cards:
+            self.cards = [Puke[c] for c in sorted(cards, reverse=True)]
 
         self.curLevel = level
         for c in self.cards:
