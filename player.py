@@ -151,10 +151,12 @@ class Player(Level):
 
     @abstractmethod
     def onEvent(self, e: Game_Event, info):
-        if e == Game_Event.GE_Ready:
+        if e == Game_Event.GE_Join:
+            if info[1] == self.name:
+                self.sit= info[0]
+        elif e == Game_Event.GE_Ready:
             if isinstance(info, list):
                 self.playerNames = info
-                self.sit = self.playerNames.index(self.name)
 
     def __str__(self):
         s = f"{self.name}:"

@@ -154,11 +154,12 @@ cate_color = [
     CSI_Color.Cyan,
 ]
 
-
 class Looker(Player):
     def onEvent(self, e, info):
         super().onEvent(e, info)
-        if e == Game_Event.GE_Ready:
+        if e == Game_Event.GE_Join:
+            print(f"{info[1]} Join Sit at {info[0]}")
+        elif e == Game_Event.GE_Ready:
             self.afterReady(info)
         elif e == Game_Event.GE_Dealing:
             self.set_cards(info)
@@ -427,10 +428,9 @@ class Looker(Player):
         pass
 
     def afterEnd(self, info):
-        stip = f"游戏结束 {[self.playerNames[p] for p in info]}赢了！"
+        stip = f"游戏结束 {[self.playerNames[p] for p in info]}赢了!  Enter 退出 "
         self.drawInfo(stip)
-        if self.lookMode:
-            keyboard.wait("enter")
+        keyboard.wait("enter")
         self.onQuit()
         pass
 

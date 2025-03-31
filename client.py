@@ -1,3 +1,8 @@
+import os
+import sys
+
+sys.path.append(os.getcwd())
+
 import socket
 import threading
 import logging
@@ -10,7 +15,7 @@ logger = logging.getLogger()
 class client(JPX):
     def __init__(self, name=""):
         if name == "":
-            name = "网络键盘侠"
+            name = f"玩家{threading.current_thread().ident}" 
         super().__init__(name)
         self.socket = socket.socket()
         self.closed = True
@@ -43,6 +48,8 @@ class client(JPX):
             logger.debug(f"send {rep}")
             # logger.debug(f"{msg} --> {rep}")
             self.sendMessage(rep)
+            if rep.e == Game_Event.GE_Quit:
+                self.close()
 
     def play(self, info):
         if info:
@@ -89,7 +96,11 @@ class client(JPX):
             return Messgae(Game_Event.GE_Playing, out)
 
         self.onEvent(msg.e, msg.info)
-        return Messgae.OK()
+        if msg.e == Game_Event.GE_End:
+            logger.info(f"Game End {msg.info}")
+            return Messgae(Game_Event.GE_Quit)
+        else:
+            return Messgae.OK()
 
     def recvMessage(self):
         if self.closed:

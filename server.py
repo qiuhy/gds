@@ -48,23 +48,26 @@ class GDC(player.Player):
         if msg:
             return msg.info
         else:
-            return []
-        # return super().play(desk_outs)
+            return super().play(desk_outs)
 
     def give(self):
         msg = self.getReply(Messgae(Game_Event.GE_Giveing, None))
-        givecard=msg.info
-        self.removeCards([givecard])
-        return givecard
-        # return super().give()
+        if msg:
+            givecard = msg.info
+            self.removeCards([givecard])
+            return givecard
+        else:
+            return super().give()
 
     def back(self, c):
         msg = self.getReply(Messgae(Game_Event.GE_Backing, c))
-        backcard = msg.info
-        self.get_card(c)
-        self.removeCards([backcard])
-        return backcard
-        
+        if msg:
+            backcard = msg.info
+            self.get_card(c)
+            self.removeCards([backcard])
+            return backcard
+        else:
+            return super().back(c)
 
     def recvMessage(self):
         if self.closed:
@@ -129,23 +132,38 @@ class GDS:
         self.clients: dict[str, GDC] = {}
         self.server = socket.create_server(("", GDPORT))
         self.address = self.server.getsockname()
-        self.onTableUser = []
+        self.table = game.Table()
         threading.Thread(target=self.accept).start()
         threading.Thread(target=self.check, daemon=True).start()
         logger.info(f"GDS: start {self.address}")
         pass
 
+    def runGame(self):
+        if self.table.start():
+            self.table.run()
+        self.table.reset()
+        for k in self.clients:
+            self.clients.pop(k).close()
+
     def accept(self):
         while True:
             try:
                 (socket, addr) = self.server.accept()
+                if self.table.isFull:
+                    socket.close()
+                    continue
                 ip = addr[0]
-                gdc = self.clients.get("ip")
-                if gdc:
-                    gdc.close()
+                # if ip in self.clients.keys():
+                #     gdc = self.clients.pop(ip)
+                #     self.table.leave_player(gdc.sit)
+                #     gdc.close()
+
                 gdc = GDC(socket, addr)
-                self.clients[ip] = gdc
-                threading.Thread(target=game.new, args=(gdc,), daemon=True).start()
+                self.clients[str(addr)] = gdc
+                self.table.join_player(gdc)
+
+                if self.table.isFull:
+                    threading.Thread(target=self.runGame, daemon=True)
             except OSError as e:
                 logger.error(f"GDS:accept {str(e)}")
                 break

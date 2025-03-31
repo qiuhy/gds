@@ -10,6 +10,7 @@ import player
 import logging
 from event import Game_Event
 import time
+
 logger = logging.getLogger()
 
 
@@ -60,17 +61,32 @@ class Table:
     def curLevel(self):
         return self.curTeam.level
 
+    @property
+    def isFull(self):
+        for i in range(4):
+            if self.players[i] is None:
+                return False
+        return True
+
+    def reset(self):
+        self.__init__()
+
     def join_player(self, player: player.Player, idx=None):
+        sit = None
         if idx == None:
             for idx in range(4):
                 if self.players[idx] == None:
                     self.players[idx] = player
-                    return True
+                    sit = idx
+                    break
         elif self.players[idx] == None:
             self.players[idx] = player
-            return True
+            sit = idx
 
-        return False
+        if sit is None:
+            return False
+        else:
+            self.broadcast(Game_Event.GE_Join, (sit, player.name))
 
     def leave_player(self, idx):
         self.players[idx] = None
@@ -268,7 +284,6 @@ class Table:
 
         if not is_over:
             self.curTeam.level = min(12, self.curTeam.level + winscore)
-            
 
         return is_over
 
@@ -282,9 +297,15 @@ class Table:
         self.broadcast(Game_Event.GE_End)
 
     def broadcast(self, e: Game_Event, info=None):
-        if e == Game_Event.GE_Ready:
-            info = [p.name for p in self.players]
-            logger.info(f"Game Ready [{self.teams[0].name}] VS [{self.teams[1].name}]")
+        if e == Game_Event.GE_Join:
+            sit = info[0]
+            playerName = info[1]
+            logger.info(f"Table: {playerName} join {self.sitName[sit]}")
+        elif e == Game_Event.GE_Ready:
+            info = [p.name if p else None for p in self.players]
+            logger.info(
+                f"Table: Ready [{self.teams[0].name}] VS [{self.teams[1].name}]"
+            )
         elif e == Game_Event.GE_Deal:
             info = [self.curTeam.name, self.curLevel]
         elif e == Game_Event.GE_Start:
@@ -317,7 +338,7 @@ class Table:
         elif e == Game_Event.GE_End:
             info = [p.sit for p in self.curTeam.players]
             logger.info(
-                "Game End [{}] 获胜 {}把过A 打了{}局, 比分 [{}]:{} - [{}]:{} \n".format(
+                "Table: End [{}] 获胜 {}把过A 打了{}局, 比分 [{}]:{} - [{}]:{} \n".format(
                     self.curTeam.name,
                     self.curTeam.levelCount,
                     self.gameCount,
@@ -356,8 +377,10 @@ class Table:
         elif info is None:
             return
         for p in self.players:
-            p.onEvent(e, info)
+            if p:
+                p.onEvent(e, info)
         time.sleep(1)
+
     def __str__(self):
         if len(self.teams) == 0:
             return "未组队,或玩家人数不足"
